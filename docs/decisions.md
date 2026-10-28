@@ -14,3 +14,6 @@ Format: date - decision - why / source.
 - 2026-10-29 - Historical data arrives via CSV/Excel import into `tasks` + `task_events` (origin `import`); idempotent on `(source, external_id)`.
 - 2026-10-29 - Archive step: only tasks Done > 14 days; batches larger than `max_batch` need explicit approval.
 - 2026-10-29 - Node installed via Homebrew (v26) on the dev machine; Next 16 docs in node_modules/next/dist/docs must be read before using framework APIs.
+- 2026-10-29 - Auth: Supabase password login; `src/proxy.ts` (Next 16 rename of middleware) redirects signed-out users, the (app) layout re-checks with getUser() and requires a `members` row. Public paths: /login, /api/cron, /api/webhooks (own secrets).
+- 2026-10-29 - Disabled `cacheComponents`/`partialPrefetching` from the scaffold: app is auth-gated and dynamic, so they only add friction.
+- 2026-10-29 - Supabase now names keys "publishable" (was anon) and "secret" (was service_role); env var names kept.

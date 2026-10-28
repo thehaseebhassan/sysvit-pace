@@ -5,18 +5,22 @@ Linear (Free plan, 250-issue cap) is only the board for the current week.
 
 Stack: Next.js (App Router, TS) on Vercel Hobby, Supabase (Postgres + Auth), Linear GraphQL API.
 
-## Setup
-1. `npm install`
-2. `cp .env.example .env.local` and fill in values (never commit it).
-3. Supabase: `npx supabase login`, `npx supabase link --project-ref <ref>`, then `npx supabase db push` to apply `supabase/migrations/`.
-4. Run `supabase/seed.sql` once (SQL editor) to create the SYSVIT workspace.
-5. Create the first admin: `PACE_ADMIN_PASSWORD='...' node --env-file=.env.local node_modules/.bin/tsx scripts/create-admin.ts you@sysvit.com 'Your Name'`
-6. `npm run dev`
+## Setup (no local tooling needed)
+1. Supabase dashboard > SQL Editor: run each file in `supabase/migrations/` in order, then `supabase/seed.sql`.
+2. Authentication > Users > Add user (email + password, auto-confirm). Disable public sign-ups.
+3. SQL Editor: make that user an admin:
+   ```sql
+   insert into public.members (workspace_id, user_id, role, display_name)
+   select w.id, u.id, 'admin', 'Your Name'
+   from public.workspaces w, auth.users u
+   where w.slug = 'sysvit' and u.email = 'YOUR_EMAIL';
+   ```
+4. Vercel: import the repo and set the variables from `.env.example`
+   (`NEXT_PUBLIC_SUPABASE_ANON_KEY` = Supabase *publishable* key, `SUPABASE_SERVICE_ROLE_KEY` = Supabase *secret* key). Redeploy.
 
-Generate DB types after migrations: `npx supabase gen types typescript --linked > src/lib/supabase/database.types.ts`
+Optional local dev: copy `.env.example` to `.env.local`, `npm install`, `npm run dev`.
 
 ## Vercel
-Add every variable from `.env.example` in Project Settings > Environment Variables.
 Cron (`vercel.json`) runs once daily - the most Vercel Hobby allows (timing is only accurate within the hour).
 
 ## Operations
