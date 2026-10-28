@@ -6,7 +6,6 @@ import { runSync } from "@/lib/sync/run";
 import { executeApprovedBatch, runArchiveStep } from "@/lib/sync/archive";
 import { importClosedIssuesCsv } from "@/lib/sync/import";
 
-export const maxDuration = 300;
 export type ActionState = { ok?: boolean; message?: string };
 const refresh = () => revalidatePath("/", "layout");
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
