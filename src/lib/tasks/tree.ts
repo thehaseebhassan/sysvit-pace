@@ -5,42 +5,59 @@ export type TreeTask = {
 
 export type Nested<T extends TreeTask> = T & { children: Nested<T>[]; depth: number };
 
-/** Nest sub-issues under their parent. Children whose parent isn't in `tasks` stay as roots (with depth 0). */
+/** Nest sub-issues. Breaks cycles (a crash source) and keeps orphans as roots. */
 export function nestTasks<T extends TreeTask>(tasks: T[]): Nested<T>[] {
   const byId = new Map(tasks.map((t) => [t.id, { ...t, children: [] as Nested<T>[], depth: 0 }]));
   const roots: Nested<T>[] = [];
   for (const node of byId.values()) {
-    const parent = node.parent_task_id ? byId.get(node.parent_task_id) : undefined;
+    const pid = node.parent_task_id;
+    const parent = pid && pid !== node.id ? byId.get(pid) : undefined;
     if (parent) parent.children.push(node);
     else roots.push(node);
   }
   const key = (n: Nested<T>) => String((n as { identifier?: string; title?: string }).identifier ?? (n as { title?: string }).title ?? "");
   const byKey = (a: Nested<T>, b: Nested<T>) => key(a).localeCompare(key(b), undefined, { numeric: true });
-  const walk = (nodes: Nested<T>[], depth: number) => {
+
+  const attached = new Set<string>();
+  const walk = (nodes: Nested<T>[], depth: number, stack: Set<string>) => {
     for (const n of nodes) {
+      if (stack.has(n.id)) continue;
       n.depth = depth;
+      attached.add(n.id);
       n.children.sort(byKey);
-      walk(n.children, depth + 1);
+      n.children = n.children.filter((c) => c.id !== n.id && !stack.has(c.id));
+      const next = new Set(stack);
+      next.add(n.id);
+      walk(n.children, depth + 1, next);
     }
   };
   roots.sort(byKey);
-  walk(roots, 0);
+  walk(roots, 0, new Set());
+  for (const node of byId.values()) {
+    if (!attached.has(node.id)) {
+      node.depth = 0;
+      node.children = [];
+      roots.push(node);
+    }
+  }
   return roots;
 }
 
 export function flattenTree<T extends TreeTask>(roots: Nested<T>[]): Nested<T>[] {
   const out: Nested<T>[] = [];
-  const walk = (nodes: Nested<T>[]) => {
+  const walk = (nodes: Nested<T>[], stack: Set<string>) => {
     for (const n of nodes) {
+      if (stack.has(n.id)) continue;
       out.push(n);
-      walk(n.children);
+      const next = new Set(stack);
+      next.add(n.id);
+      walk(n.children, next);
     }
   };
-  walk(roots);
+  walk(roots, new Set());
   return out;
 }
 
-/** Parent identifiers referenced by children but missing as their own CSV row. */
 export function missingParentIds(
   rows: { identifier: string; parentIdentifier: string | null; parentTitle: string | null }[],
 ): { identifier: string; title: string }[] {

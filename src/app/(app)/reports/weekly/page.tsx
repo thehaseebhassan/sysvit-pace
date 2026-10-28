@@ -42,7 +42,7 @@ export default async function Weekly() {
                 return (
                   <div key={w} className="group flex h-full flex-1 flex-col items-center justify-end gap-1" title={`${formatWeekRange(w)}: ${n} done`}>
                     <span className="text-[10px] text-[var(--muted)] opacity-0 group-hover:opacity-100">{n}</span>
-                    <div className="w-full rounded-sm bg-[var(--accent-soft)] transition group-hover:bg-[var(--accent)]" style={{ height: `${Math.max(2, (n / max) * 100)}%` }} />
+                    <div className="w-full rounded-sm bg-[#eceefb] transition group-hover:bg-[var(--accent)]" style={{ height: `${Math.max(2, (n / max) * 100)}%` }} />
                   </div>
                 );
               })}
@@ -53,7 +53,7 @@ export default async function Weekly() {
               const items = byWeek.get(w) ?? [];
               if (!items.length && !totals.get(w)) return null;
               return (
-                <details key={w} open={i === 0} className="group rounded-md border border-[var(--line)] bg-[var(--bg-raised)]">
+                <details key={w} open={i === 0} className="group border-b border-[var(--line)]">
                   <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 hover:bg-[#f7f6f1]">
                     <span className="text-[13px] font-medium">{w === current ? "This week" : formatWeekRange(w)}</span>
                     <span className="text-[12px] text-[var(--muted)]">{totals.get(w) ?? items.length}</span>

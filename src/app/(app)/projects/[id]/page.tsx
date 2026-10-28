@@ -14,6 +14,9 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
     supabase.from("tasks").select(TASK_SELECT).eq("project_id", id).order("identifier").limit(800),
   ]);
   if (!p.data) notFound();
+  if (tasks.error) {
+    return <p className="p-4 text-[13px] text-[#eb5757]">Couldn’t load issues: {tasks.error.message}</p>;
+  }
   const rows = (tasks.data ?? []) as unknown as TaskRow[];
   const today = dateInTz(new Date(), workspace.timezone);
 

@@ -1,20 +1,22 @@
 import { Suspense } from "react";
 import { FilterBar } from "@/components/filter-bar";
 import { TASK_SELECT, TaskTable, type TaskRow } from "@/components/task-table";
-import { EmptyState, PageHeader } from "@/components/ui";
+import { EmptyState } from "@/components/ui";
 import { requireCtx } from "@/lib/auth";
 import { OPEN } from "@/lib/format";
 import { dateInTz } from "@/lib/weeks";
 
 const UUID = /^[0-9a-f-]{36}$/i;
-const LIMIT = 300;
+const LIMIT = 800;
+const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
-export default async function Tasks({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const sp = await searchParams;
+export default async function Tasks({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const raw = await searchParams;
+  const sp = { status: first(raw.status), project: first(raw.project), assignee: first(raw.assignee), flag: first(raw.flag), q: first(raw.q) };
   const { supabase, workspace } = await requireCtx();
   const today = dateInTz(new Date(), workspace.timezone);
 
-  let q = supabase.from("tasks").select(TASK_SELECT).order("external_updated_at", { ascending: false, nullsFirst: false }).limit(LIMIT);
+  let q = supabase.from("tasks").select(TASK_SELECT).order("identifier").limit(LIMIT);
   if (sp.status === "open") q = q.in("status_category", [...OPEN]);
   else if (sp.status) q = q.eq("status_category", sp.status);
   if (sp.project && UUID.test(sp.project)) q = q.eq("project_id", sp.project);
@@ -31,15 +33,26 @@ export default async function Tasks({ searchParams }: { searchParams: Promise<Re
     supabase.from("projects").select("id, name").order("name"),
     supabase.from("people").select("id, display_name").order("display_name"),
   ]);
+
+  if (tasks.error) {
+    return (
+      <div className="p-4">
+        <p className="text-[13px] text-[#eb5757]">Couldn’t load issues: {tasks.error.message}</p>
+      </div>
+    );
+  }
+
   const rows = (tasks.data ?? []) as unknown as TaskRow[];
 
   return (
-    <div>
-      <PageHeader title="Tasks" subtitle={`${rows.length}${rows.length === LIMIT ? "+" : ""} shown`} />
-      <Suspense>
-        <FilterBar projects={projects.data ?? []} people={people.data ?? []} />
-      </Suspense>
-      {rows.length ? <TaskTable tasks={rows} today={today} /> : <EmptyState title="No tasks match" hint="Try clearing a filter." />}
+    <div className="py-2">
+      <div className="flex h-10 items-center px-3 text-[15px] font-medium" style={{ fontVariationSettings: "'wght' 510" }}>Issues</div>
+      <div className="px-3">
+        <Suspense>
+          <FilterBar projects={projects.data ?? []} people={people.data ?? []} />
+        </Suspense>
+      </div>
+      {rows.length ? <TaskTable tasks={rows} today={today} title="All issues" /> : <div className="px-3"><EmptyState title="No issues" hint="Import the CSV or run Sync." /></div>}
     </div>
   );
 }

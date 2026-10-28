@@ -19,7 +19,7 @@ export function LoginForm() {
       </div>
       {state.error && <p role="alert" className="text-[12px] text-[#a33b2b]">{state.error}</p>}
       <button type="submit" disabled={pending}
-        className="w-full rounded-md bg-[var(--accent)] px-3 py-1.5 text-[13px] font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-60">
+        className="w-full rounded-md bg-[var(--accent)] px-3 py-1.5 text-[13px] font-medium text-white hover:opacity-90 disabled:opacity-60">
         {pending ? "Signing in…" : "Sign in"}
       </button>
     </form>
