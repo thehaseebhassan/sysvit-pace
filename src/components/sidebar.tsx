@@ -17,15 +17,15 @@ const NAV = [
 export function Sidebar() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Main" className="flex gap-1 overflow-x-auto md:flex-col">
+    <nav aria-label="Main" className="flex gap-0.5 overflow-x-auto md:flex-col">
       {NAV.map((item) => {
         const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
         return (
           <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined}
-            className={`group flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm transition ${
-              active ? "bg-indigo-50 font-medium text-indigo-700" : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+            className={`group flex items-center gap-2 whitespace-nowrap rounded-md px-2 py-[5px] text-[13px] transition ${
+              active ? "bg-[#e8e6dc] font-medium text-[var(--fg)]" : "text-[#3d3d3a] hover:bg-[#e8e6dc]/70"
             }`}>
-            <span className={active ? "text-indigo-600" : "text-zinc-400 transition group-hover:text-zinc-600"}>{item.icon}</span>
+            <span className={active ? "text-[var(--accent)]" : "text-[var(--muted)]"}>{item.icon}</span>
             {item.label}
           </Link>
         );

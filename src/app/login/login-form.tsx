@@ -3,23 +3,23 @@
 import { useActionState } from "react";
 import { login, type LoginState } from "./actions";
 
+const field = "w-full rounded-md border border-[var(--line)] bg-white px-2.5 py-1.5 text-[13px] outline-none focus:border-[var(--accent)]";
+
 export function LoginForm() {
   const [state, action, pending] = useActionState<LoginState, FormData>(login, {});
   return (
-    <form action={action} className="space-y-4">
-      <div className="space-y-1.5">
-        <label htmlFor="email" className="text-sm font-medium">Email</label>
-        <input id="email" name="email" type="email" autoComplete="email" required
-          className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+    <form action={action} className="space-y-3">
+      <div className="space-y-1">
+        <label htmlFor="email" className="text-[12px] text-[var(--muted)]">Email</label>
+        <input id="email" name="email" type="email" autoComplete="email" required className={field} />
       </div>
-      <div className="space-y-1.5">
-        <label htmlFor="password" className="text-sm font-medium">Password</label>
-        <input id="password" name="password" type="password" autoComplete="current-password" required
-          className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+      <div className="space-y-1">
+        <label htmlFor="password" className="text-[12px] text-[var(--muted)]">Password</label>
+        <input id="password" name="password" type="password" autoComplete="current-password" required className={field} />
       </div>
-      {state.error && <p role="alert" className="text-sm text-red-600">{state.error}</p>}
+      {state.error && <p role="alert" className="text-[12px] text-[#a33b2b]">{state.error}</p>}
       <button type="submit" disabled={pending}
-        className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500 active:scale-[.98] disabled:opacity-60">
+        className="w-full rounded-md bg-[var(--accent)] px-3 py-1.5 text-[13px] font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-60">
         {pending ? "Signing in…" : "Sign in"}
       </button>
     </form>

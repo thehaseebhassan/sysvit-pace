@@ -13,7 +13,7 @@ export function ActionForm({ action, children, className = "" }: {
     <form action={formAction} className={className}>
       {children}
       {state.message && (
-        <p role="status" className={`mt-3 text-sm ${state.ok ? "text-emerald-700" : "text-red-600"}`}>{state.message}</p>
+        <p role="status" className={`mt-3 text-[12px] ${state.ok ? "text-[#4e6438]" : "text-[#a33b2b]"}`}>{state.message}</p>
       )}
     </form>
   );

@@ -29,15 +29,15 @@ export function FilterBar({ projects, people }: { projects: { id: string; name: 
 
   const status = sp.get("status") ?? "";
   const flag = sp.get("flag") ?? "";
-  const sel = "rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100";
+  const sel = "h-7 rounded-md border border-[var(--line)] bg-[var(--bg-raised)] px-2 text-[12px] outline-none focus:border-[var(--accent)]";
   const chip = (on: boolean) =>
-    `rounded-full border px-3 py-1 text-sm transition ${on ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"}`;
+    `h-7 rounded-md px-2 text-[12px] transition ${on ? "bg-[#e8e6dc] text-[var(--fg)]" : "text-[var(--muted)] hover:bg-[#f0eee6]"}`;
 
   return (
-    <div className="mb-4 space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search title or ID…" aria-label="Search tasks"
-          className={`${sel} w-full sm:w-64`} />
+    <div className="mb-3 space-y-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter issues…" aria-label="Search tasks"
+          className={`${sel} w-full sm:w-56`} />
         <select aria-label="Project" className={sel} value={sp.get("project") ?? ""} onChange={(e) => set("project", e.target.value)}>
           <option value="">All projects</option>
           {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
