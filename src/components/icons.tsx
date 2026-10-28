@@ -1,13 +1,58 @@
-const P = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
-const wrap = (d: React.ReactNode) => (
-  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden {...P}>{d}</svg>
-);
+const s = { fill: "none" as const, stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+function I({ children }: { children: React.ReactNode }) {
+  return <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden {...s}>{children}</svg>;
+}
+
 export const icons = {
-  overview: wrap(<><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></>),
-  projects: wrap(<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />),
-  tasks: wrap(<><path d="M9 11l2 2 4-4" /><rect x="3" y="4" width="18" height="16" rx="2.5" /></>),
-  people: wrap(<><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.6-3.5 3.2-5.5 6.5-5.5s5.9 2 6.5 5.5" /><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c2 .6 3.2 2.3 3.5 5.2" /></>),
-  weekly: wrap(<><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>),
-  sync: wrap(<><path d="M20 11a8 8 0 0 0-14-4L4 9M4 13a8 8 0 0 0 14 4l2-2" /><path d="M4 4v5h5M20 20v-5h-5" /></>),
-  settings: wrap(<><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></>),
+  issues: (
+    <I>
+      <path d="M2.5 3.5h11M2.5 8h11M2.5 12.5h7" />
+    </I>
+  ),
+  projects: (
+    <I>
+      <path d="M2.5 4.5h4l1.2 1.5H13.5v6.5a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1z" />
+    </I>
+  ),
+  overview: (
+    <I>
+      <rect x="2.5" y="2.5" width="5" height="5" rx="0.8" />
+      <rect x="8.5" y="2.5" width="5" height="3.2" rx="0.8" />
+      <rect x="8.5" y="7.2" width="5" height="6.3" rx="0.8" />
+      <rect x="2.5" y="9.2" width="5" height="4.3" rx="0.8" />
+    </I>
+  ),
+  people: (
+    <I>
+      <circle cx="6" cy="5.2" r="2.2" />
+      <path d="M2.2 13c.4-2.4 2.1-3.7 3.8-3.7S9.4 10.6 9.8 13" />
+      <path d="M10.2 4.6a2.1 2.1 0 0 1 0 4.1" />
+      <path d="M11.5 9.4c1.4.5 2.3 1.8 2.5 3.6" />
+    </I>
+  ),
+  weekly: (
+    <I>
+      <path d="M3 12.5V7.5M6.5 12.5V4M10 12.5V8.5M13 12.5V5.5" />
+    </I>
+  ),
+  sync: (
+    <I>
+      <path d="M13.2 7.2A5.2 5.2 0 0 0 4.2 4.6L2.8 6.2" />
+      <path d="M2.8 2.8v3.4h3.4" />
+      <path d="M2.8 8.8a5.2 5.2 0 0 0 9 2.6l1.4-1.6" />
+      <path d="M13.2 13.2V9.8h-3.4" />
+    </I>
+  ),
+  settings: (
+    <I>
+      <circle cx="8" cy="8" r="2.1" />
+      <path d="M8 2.4v1.4M8 12.2v1.4M13.6 8h-1.4M3.8 8H2.4M12 4l-1 1M5 11l-1 1M12 12l-1-1M5 5 4 4" />
+    </I>
+  ),
+  inbox: (
+    <I>
+      <path d="M2.5 8.5 4 3.5h8l1.5 5v4a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1z" />
+      <path d="M2.5 8.5h3.2l.8 1.6h3l.8-1.6h3.2" />
+    </I>
+  ),
 };

@@ -32,7 +32,7 @@ export default async function Overview() {
   ];
 
   return (
-    <div>
+    <div className="py-2">
       <PageHeader title="Overview" subtitle={`Week of ${fmtDate(thisWeek)} · synced ${timeAgo(lastRun.data?.finished_at)}`} />
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         {stats.map((s) => (

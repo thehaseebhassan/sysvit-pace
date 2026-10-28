@@ -26,11 +26,11 @@ export type EventRow = {
  * Derive task_events from an issue's history. Keys are deterministic
  * (history node id + kind) so re-running a sync never duplicates events.
  */
-export function deriveEvents(issue: Pick<LinearIssue, "createdAt" | "archivedAt" | "history">): EventRow[] {
+export function deriveEvents(issue: Pick<LinearIssue, "createdAt" | "archivedAt"> & { history?: LinearIssue["history"] }): EventRow[] {
   const ev: EventRow[] = [
     { event_type: "created", from_value: null, to_value: null, occurred_at: issue.createdAt, source_event_key: "created", origin: "linear_history" },
   ];
-  for (const h of issue.history.nodes) {
+  for (const h of issue.history?.nodes ?? []) {
     const base = { occurred_at: h.createdAt, origin: "linear_history" as const };
     if (h.fromState && h.toState && h.fromState.id !== h.toState.id) {
       ev.push({ ...base, event_type: "status_changed", from_value: h.fromState.name, to_value: h.toState.name, source_event_key: `${h.id}:status` });

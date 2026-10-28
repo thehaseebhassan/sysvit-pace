@@ -72,14 +72,14 @@ export const ISSUE_FIELDS = `
   project { id }
   parent { id identifier }
   labels(first: 10) { nodes { name } }
-  history(first: 50) { nodes {
+  history(first: 15) { nodes {
     id createdAt
     fromState { id name type } toState { id name type }
     fromAssignee { id name } toAssignee { id name }
   } }
 `;
 
-export const ISSUE_PAGE_SIZE = 10;
+export const ISSUE_PAGE_SIZE = 25;
 
 export async function fetchIssuePage(opts: { after?: string | null; updatedAfter?: string | null }) {
   const data = await linearGql<{

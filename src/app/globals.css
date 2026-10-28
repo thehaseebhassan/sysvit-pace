@@ -1,24 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #faf9f5;
-  --bg-raised: #ffffff;
-  --bg-sidebar: #f0eee6;
-  --fg: #141413;
-  --muted: #87867f;
-  --line: #e8e6dc;
-  --accent: #d97757;
-  --accent-hover: #c6613f;
-  --accent-soft: #f5e3c7;
+  --bg: #ffffff;
+  --bg-sidebar: #f8f8f8;
+  --bg-hover: #f0f0f0;
+  --bg-active: #ececec;
+  --fg: #1c1c1c;
+  --muted: #8a8f98;
+  --line: #e6e6e6;
+  --accent: #5e6ad2;
+  --green: #4cb782;
+  --yellow: #f2c94c;
+  --orange: #f2994a;
+  --red: #eb5757;
   color-scheme: light;
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-fg: var(--fg);
-  --color-accent: var(--accent);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), "Inter Variable", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 html { color-scheme: light; }
@@ -26,13 +27,15 @@ html { color-scheme: light; }
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-inter), "Inter Variable", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
-  letter-spacing: -0.01em;
+  font-feature-settings: "cv01", "ss03";
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
 }
 
-::selection { background: var(--accent-soft); }
+::selection { background: #e8eafc; }
 
 @keyframes grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-.grow-x { transform-origin: left; animation: grow-x .5s cubic-bezier(.2,.7,.2,1) both; }
+.grow-x { transform-origin: left; animation: grow-x .4s ease both; }
 @media (prefers-reduced-motion: reduce) { .grow-x { animation: none; } }
