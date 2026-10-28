@@ -17,3 +17,10 @@ Format: date - decision - why / source.
 - 2026-10-29 - Auth: Supabase password login; `src/proxy.ts` (Next 16 rename of middleware) redirects signed-out users, the (app) layout re-checks with getUser() and requires a `members` row. Public paths: /login, /api/cron, /api/webhooks (own secrets).
 - 2026-10-29 - Disabled `cacheComponents`/`partialPrefetching` from the scaffold: app is auth-gated and dynamic, so they only add friction.
 - 2026-10-29 - Supabase now names keys "publishable" (was anon) and "secret" (was service_role); env var names kept.
+- 2026-10-29 - Sync: incremental by Linear `updatedAt` (ordered, 10-minute overlap), backfill on first run, `includeArchived: true`. Pages of 10 issues x 50 history entries keep each query under Linear's 10,000-point complexity cap (estimated ~3,400; not yet measured against the live API).
+- 2026-10-29 - Events come only from Linear issue history, keyed `<history id>:<kind>` (unique per task), so re-runs and webhooks never duplicate. Issues with >50 history entries lose the oldest ones (known limit).
+- 2026-10-29 - CSV import creates rows with source `import`; when the same project/team/person/issue appears in Linear the sync "adopts" them (flips to source `linear`, sets the Linear id, drops import-origin events) so nothing is duplicated.
+- 2026-10-29 - Webhooks (`/api/webhooks/linear`): HMAC-SHA256 on the raw body + 60s timestamp check (Linear docs); each Issue event re-fetches the issue and runs the same upsert as the cron.
+- 2026-10-29 - Archive: off by default. Eligible = source linear, Done > N days, not archived/deleted. When enabled: <= max_batch archived directly, more => pending batch needing admin approval in the UI. Only `issueArchive` is ever called.
+- 2026-10-29 - Hobby function duration default and max is 300s with fluid compute (Vercel docs); cron and sync-now routes set maxDuration 300.
+- 2026-10-29 - UI: light theme only, indigo accent, Tailwind only (no UI library); inline SVG icons.
