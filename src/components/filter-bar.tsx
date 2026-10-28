@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const STATUSES = [
-  { v: "", l: "All" }, { v: "open", l: "Active" }, { v: "in_progress", l: "In progress" },
+  { v: "", l: "All" }, { v: "open", l: "Open" }, { v: "in_progress", l: "In progress" },
   { v: "done", l: "Done" }, { v: "canceled", l: "Canceled" },
 ];
 
@@ -29,27 +29,29 @@ export function FilterBar({ projects, people }: { projects: { id: string; name: 
 
   const status = sp.get("status") ?? "";
   const flag = sp.get("flag") ?? "";
-  const sel = "h-7 rounded-md bg-transparent px-2 text-[13px] text-[var(--fg)] outline-none hover:bg-[var(--bg-hover)]";
-  const chip = (on: boolean) => `h-7 rounded-md px-2 text-[13px] ${on ? "bg-[var(--bg-active)]" : "text-[var(--muted)] hover:bg-[var(--bg-hover)]"}`;
+  const sel = "h-8 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2.5 text-sm outline-none focus:border-[var(--accent)]";
+  const chip = (on: boolean) => `h-8 rounded-lg px-3 text-sm ${on ? "bg-[var(--fg)] text-white" : "text-[var(--muted)] hover:bg-white"}`;
 
   return (
-    <div className="mb-1 flex flex-wrap items-center gap-1">
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter…" aria-label="Search issues" className={`${sel} w-40`} />
+    <div className="mb-4 flex flex-wrap items-center gap-2">
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" aria-label="Search issues" className={`${sel} w-48`} />
       <select aria-label="Project" className={sel} value={sp.get("project") ?? ""} onChange={(e) => set("project", e.target.value)}>
-        <option value="">Project</option>
+        <option value="">All projects</option>
         {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
       </select>
       <select aria-label="Assignee" className={sel} value={sp.get("assignee") ?? ""} onChange={(e) => set("assignee", e.target.value)}>
-        <option value="">Assignee</option>
+        <option value="">Everyone</option>
         <option value="none">Unassigned</option>
         {people.map((p) => <option key={p.id} value={p.id}>{p.display_name}</option>)}
       </select>
-      {STATUSES.map((s) => (
-        <button key={s.v} className={chip(status === s.v && !flag)} onClick={() => { const n = new URLSearchParams(sp.toString()); n.delete("flag"); if (s.v) n.set("status", s.v); else n.delete("status"); router.replace(`${pathname}?${n.toString()}`, { scroll: false }); }}>
-          {s.l}
-        </button>
-      ))}
-      <button className={chip(flag === "overdue")} onClick={() => set("flag", flag === "overdue" ? "" : "overdue")}>Overdue</button>
+      <div className="flex flex-wrap gap-1">
+        {STATUSES.map((s) => (
+          <button key={s.v} className={chip(status === s.v && !flag)} onClick={() => { const n = new URLSearchParams(sp.toString()); n.delete("flag"); if (s.v) n.set("status", s.v); else n.delete("status"); router.replace(`${pathname}?${n.toString()}`, { scroll: false }); }}>
+            {s.l}
+          </button>
+        ))}
+        <button className={chip(flag === "overdue")} onClick={() => set("flag", flag === "overdue" ? "" : "overdue")}>Overdue</button>
+      </div>
     </div>
   );
 }
