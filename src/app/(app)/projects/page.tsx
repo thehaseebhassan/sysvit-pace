@@ -9,15 +9,15 @@ export default async function Projects() {
     <div>
       <PageHeader title="Projects" subtitle="Progress across every project." />
       {data?.length ? (
-        <div className="grid gap-2 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           {data.map((p) => (
-            <Card key={p.project_id} href={`/projects/${p.project_id}`} className="!p-3">
+            <Card key={p.project_id} href={`/projects/${p.project_id}`}>
               <div className="flex items-start justify-between gap-3">
-                <h2 className="truncate text-[13px] font-medium">{p.project_name}</h2>
-                <span className="text-[12px] text-[var(--muted)]">{Math.round(p.percent_done)}%</span>
+                <h2 className="truncate text-sm font-medium">{p.project_name}</h2>
+                <span className="text-sm text-[var(--muted)]">{Math.round(p.percent_done)}%</span>
               </div>
-              <div className="mt-2"><ProgressBar value={p.percent_done} /></div>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--muted)]">
+              <div className="mt-3"><ProgressBar value={p.percent_done} /></div>
+              <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-[var(--muted)]">
                 <span>{p.done_tasks} done</span>
                 <span>· {p.open_tasks} open</span>
                 {p.overdue_tasks > 0 && <Badge tone="red">{p.overdue_tasks} overdue</Badge>}

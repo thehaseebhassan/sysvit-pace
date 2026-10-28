@@ -9,18 +9,18 @@ export default async function People() {
     <div>
       <PageHeader title="People" subtitle="Workload by assignee." />
       {data?.length ? (
-        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {data.map((r) => {
             const href = `/tasks?status=open&assignee=${r.assignee_id ?? "none"}`;
             return (
-              <Card key={r.assignee_id ?? "none"} href={href} className={`!p-3 ${!r.assignee_id ? "!border-[#e8c9b5]" : ""}`}>
+              <Card key={r.assignee_id ?? "none"} href={href} className={!r.assignee_id ? "border-[#e8c9b5]" : ""}>
                 <div className="flex items-center gap-2">
                   <Avatar name={r.assignee_id ? r.assignee_name : null} />
-                  <h2 className="truncate text-[13px] font-medium">{r.assignee_name}</h2>
+                  <h2 className="truncate text-sm font-medium">{r.assignee_name}</h2>
                   {r.overdue_tasks > 0 && <span className="ml-auto"><Badge tone="red">{r.overdue_tasks}</Badge></span>}
                 </div>
                 <div className="mt-3"><ProgressBar value={(r.open_tasks / max) * 100} /></div>
-                <p className="mt-1.5 text-[11px] text-[var(--muted)]">{r.open_tasks} open · {r.done_tasks} done</p>
+                <p className="mt-2 text-xs text-[var(--muted)]">{r.open_tasks} open · {r.done_tasks} done</p>
               </Card>
             );
           })}
