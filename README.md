@@ -23,6 +23,12 @@ Optional local dev: copy `.env.example` to `.env.local`, `npm install`, `npm run
 ## Vercel
 Cron (`vercel.json`) runs once daily - the most Vercel Hobby allows (timing is only accurate within the hour).
 
+## Using it
+1. **Sync page > Import history (CSV)**: upload the closed-issues export once.
+2. **Sync page > Sync now** (admin): pulls teams, users, projects and issues from Linear. A daily cron does the same.
+3. Linear webhook (optional, near-real-time): Linear > Settings > API > New webhook, URL `https://<your-app>/api/webhooks/linear`, resources Issue/Project/User. Put its signing secret in `LINEAR_WEBHOOK_SECRET`.
+4. Archiving is **off**. Enable it in Settings after you have tested one issue (`docs/linear-archive-check.md`).
+
 ## Operations
 - Weekly backup (Supabase Free has no daily backups): `scripts/backup-weekly.sh`
 - Archive-cap test: `docs/linear-archive-check.md`
