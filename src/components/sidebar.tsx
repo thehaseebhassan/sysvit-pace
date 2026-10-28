@@ -4,32 +4,44 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { icons } from "./icons";
 
-const NAV = [
+const MAIN = [
   { href: "/", label: "Overview", icon: icons.overview },
+  { href: "/tasks", label: "Issues", icon: icons.issues },
   { href: "/projects", label: "Projects", icon: icons.projects },
-  { href: "/tasks", label: "Tasks", icon: icons.tasks },
   { href: "/people", label: "People", icon: icons.people },
   { href: "/reports/weekly", label: "Weekly", icon: icons.weekly },
+];
+const BOTTOM = [
   { href: "/sync", label: "Sync", icon: icons.sync },
   { href: "/settings", label: "Settings", icon: icons.settings },
 ];
 
-export function Sidebar() {
+function Item({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) {
   const pathname = usePathname();
+  const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
   return (
-    <nav aria-label="Main" className="flex gap-0.5 overflow-x-auto md:flex-col">
-      {NAV.map((item) => {
-        const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-        return (
-          <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined}
-            className={`group flex items-center gap-2 whitespace-nowrap rounded-md px-2 py-[5px] text-[13px] transition ${
-              active ? "bg-[#e8e6dc] font-medium text-[var(--fg)]" : "text-[#3d3d3a] hover:bg-[#e8e6dc]/70"
-            }`}>
-            <span className={active ? "text-[var(--accent)]" : "text-[var(--muted)]"}>{item.icon}</span>
-            {item.label}
-          </Link>
-        );
-      })}
-    </nav>
+    <Link href={href} aria-current={active ? "page" : undefined}
+      className={`flex h-7 items-center gap-2 rounded-md px-2 text-[13px] ${
+        active ? "bg-[var(--bg-active)] text-[var(--fg)]" : "text-[#3c4149] hover:bg-[var(--bg-hover)]"
+      }`}>
+      <span className={active ? "text-[var(--fg)]" : "text-[#8a8f98]"}>{icon}</span>
+      {label}
+    </Link>
+  );
+}
+
+export function Sidebar({ workspace }: { workspace: string }) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex h-11 items-center gap-2 px-3">
+        <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[4px] bg-[var(--accent)] text-[10px] font-medium text-white">S</span>
+        <span className="truncate text-[13px] font-medium" style={{ fontVariationSettings: "'wght' 510" }}>{workspace}</span>
+      </div>
+      <nav aria-label="Main" className="flex flex-1 flex-col gap-px px-2">
+        {MAIN.map((i) => <Item key={i.href} {...i} />)}
+        <div className="my-2 h-px bg-[var(--line)]" />
+        {BOTTOM.map((i) => <Item key={i.href} {...i} />)}
+      </nav>
+    </div>
   );
 }

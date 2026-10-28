@@ -3,17 +3,22 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { nestTasks, type Nested } from "@/lib/tasks/tree";
-import { Avatar } from "./ui";
-import { fmtDate, OPEN } from "@/lib/format";
+import { OPEN } from "@/lib/format";
 
 export type TaskRow = {
   id: string; identifier: string | null; title: string; status_name: string | null; status_category: string;
   due_date: string | null; completed_at: string | null; external_url: string | null; parent_task_id: string | null;
-  priority?: number | null; labels?: string[];
-  project: { id: string; name: string } | null; assignee: { id: string; display_name: string } | null;
+  priority?: number | null; labels?: string[] | null;
+  project: { id: string; name: string } | null | { id: string; name: string }[];
+  assignee: { id: string; display_name: string } | null | { id: string; display_name: string }[];
 };
 
 type Node = Nested<TaskRow> & { isLast: boolean; ancestorsLast: boolean[] };
+
+function one<T>(v: T | T[] | null | undefined): T | null {
+  if (!v) return null;
+  return Array.isArray(v) ? v[0] ?? null : v;
+}
 
 function childStats(n: Nested<TaskRow>): { done: number; total: number } {
   let done = 0, total = 0;
@@ -27,71 +32,72 @@ function childStats(n: Nested<TaskRow>): { done: number; total: number } {
   return { done, total };
 }
 
-function statusStyle(category: string): { border: string; fill: string } {
-  switch (category) {
-    case "in_progress": return { border: "#f2c94c", fill: "#f2c94c" };
-    case "done": return { border: "#4cb782", fill: "#4cb782" };
-    case "canceled": return { border: "#95a2b3", fill: "transparent" };
-    case "todo": return { border: "#d0cec8", fill: "transparent" };
-    default: return { border: "#c8c6bf", fill: "transparent" };
-  }
-}
-
 function StatusCircle({ category, name }: { category: string; name?: string | null }) {
-  const s = statusStyle(category);
+  const map: Record<string, { b: string; f: string }> = {
+    in_progress: { b: "#f2c94c", f: "#f2c94c" },
+    done: { b: "#4cb782", f: "#4cb782" },
+    canceled: { b: "#95a2b3", f: "transparent" },
+    todo: { b: "#c9cdd3", f: "transparent" },
+    backlog: { b: "#c9cdd3", f: "transparent" },
+  };
+  const s = map[category] ?? map.backlog;
   return (
-    <span title={name ?? category} className="inline-flex h-[14px] w-[14px] shrink-0 items-center justify-center" aria-hidden>
-      <span className="block h-[11px] w-[11px] rounded-full" style={{ border: `1.5px solid ${s.border}`, background: s.fill }} />
+    <span title={name ?? category} className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+      <span className="block h-[11px] w-[11px] rounded-full" style={{ border: `1.5px solid ${s.b}`, background: s.f }} />
     </span>
   );
 }
 
-/** Linear-style three rising bars. */
 function PriorityBars({ priority }: { priority: number | null | undefined }) {
-  const n = priority ?? 0;
-  if (!n) return <span className="inline-block w-[10px]" />;
-  const color = n <= 1 ? "#eb5757" : n === 2 ? "#f2994a" : n === 3 ? "#f2c94c" : "#b0aea5";
-  const h = [4, 7, 10];
+  const n = Number(priority) || 0;
+  if (!n) return <span className="inline-block w-2.5 shrink-0" />;
+  const color = n <= 1 ? "#eb5757" : n === 2 ? "#f2994a" : "#f2c94c";
   return (
-    <span title={`Priority ${n}`} className="inline-flex h-[12px] w-[10px] items-end gap-px" aria-hidden>
-      {h.map((hh, i) => (
-        <span key={i} className="w-[2.5px] rounded-sm" style={{ height: hh, background: i < (n === 4 ? 1 : n === 3 ? 2 : 3) ? color : "#e8e6dc" }} />
+    <span className="inline-flex h-3 w-2.5 shrink-0 items-end gap-px" title={`Priority ${n}`}>
+      {[4, 7, 10].map((h, i) => (
+        <span key={i} className="w-[2.5px] rounded-[0.5px]" style={{ height: h, background: i < (n >= 3 ? 3 : n) ? color : "#e6e6e6" }} />
       ))}
     </span>
   );
 }
 
-function labelColor(name: string) {
-  const hue = [...name].reduce((n, c) => n + c.charCodeAt(0), 0) % 360;
-  return `hsl(${hue} 45% 48%)`;
-}
-
-function Chip({ name, tone }: { name: string; tone?: string }) {
+function Chip({ name, color }: { name: string; color: string }) {
   return (
-    <span className="inline-flex max-w-[120px] items-center gap-1 truncate rounded-full bg-[#f4f3ee] px-1.5 py-px text-[11px] text-[#3d3d3a]">
-      <span className="h-[6px] w-[6px] shrink-0 rounded-full" style={{ background: tone ?? labelColor(name) }} />
+    <span className="inline-flex max-w-[140px] items-center gap-1 truncate rounded-full bg-[#f3f3f3] px-1.5 py-px text-[12px] text-[#3c4149]">
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
       {name}
     </span>
   );
 }
 
+function shortDate(ymd: string | null) {
+  if (!ymd) return "";
+  const d = new Date(ymd.slice(0, 10) + "T00:00:00Z");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+function initials(name: string) {
+  return name.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("");
+}
+
 function TreeLines({ depth, isLast, ancestorsLast }: { depth: number; isLast: boolean; ancestorsLast: boolean[] }) {
   if (depth === 0) return null;
+  const col = 14;
   return (
-    <span className="relative mr-0.5 flex h-[28px] shrink-0" style={{ width: depth * 16 }} aria-hidden>
+    <span className="relative h-8 shrink-0" style={{ width: depth * col }} aria-hidden>
       {ancestorsLast.map((last, i) =>
-        last ? null : (
-          <span key={i} className="absolute top-0 bottom-0 w-px bg-[#dddcd6]" style={{ left: i * 16 + 8 }} />
-        ),
+        last ? null : <span key={i} className="absolute inset-y-0 w-px bg-[#e2e2e2]" style={{ left: i * col + 8 }} />,
       )}
-      <span className="absolute w-px bg-[#dddcd6]" style={{ left: (depth - 1) * 16 + 8, top: 0, height: isLast ? 14 : 28 }} />
-      <span className="absolute h-px bg-[#dddcd6]" style={{ left: (depth - 1) * 16 + 8, top: 14, width: 10 }} />
+      <span className="absolute w-px bg-[#e2e2e2]" style={{ left: (depth - 1) * col + 8, top: 0, height: isLast ? 16 : 32 }} />
+      <span className="absolute h-px bg-[#e2e2e2]" style={{ left: (depth - 1) * col + 8, top: 16, width: 8 }} />
     </span>
   );
 }
 
-export function TaskTable({ tasks, today, showProject = true }: { tasks: TaskRow[]; today: string; showProject?: boolean }) {
-  const nested = useMemo(() => nestTasks(tasks), [tasks]);
+export function TaskTable({ tasks, today, showProject = true, title = "Issues" }: {
+  tasks: TaskRow[]; today: string; showProject?: boolean; title?: string;
+}) {
+  const nested = useMemo(() => nestTasks(tasks.filter((t) => t?.id)), [tasks]);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const visible = useMemo(() => {
     const out: Node[] = [];
@@ -109,52 +115,54 @@ export function TaskTable({ tasks, today, showProject = true }: { tasks: TaskRow
   if (!tasks.length) return null;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--bg-raised)]">
+    <div>
+      <div className="flex h-8 items-center justify-between px-3 text-[13px] text-[var(--muted)]">
+        <span>{title} <span className="ml-1">{nested.length}</span></span>
+      </div>
       <ul>
         {visible.map((t) => {
+          const project = one(t.project);
+          const assignee = one(t.assignee);
+          const labels = Array.isArray(t.labels) ? t.labels : [];
           const overdue = !!t.due_date && t.due_date < today && (OPEN as readonly string[]).includes(t.status_category);
           const canceled = t.status_category === "canceled";
           const stats = t.children.length ? childStats(t) : null;
           return (
-            <li key={t.id} className="group flex h-8 items-center gap-2 border-b border-[var(--line)] pr-2 last:border-b-0 hover:bg-[#f7f6f1]">
+            <li key={t.id} className="flex h-8 items-center pr-3 hover:bg-[#f8f8f8]">
               <TreeLines depth={t.depth} isLast={t.isLast} ancestorsLast={t.ancestorsLast} />
-              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+              <div className="flex min-w-0 flex-1 items-center gap-1.5 pl-2">
                 {t.children.length ? (
-                  <button type="button" aria-expanded={!collapsed[t.id]}
-                    aria-label={collapsed[t.id] ? "Expand sub-issues" : "Collapse sub-issues"}
-                    className="flex h-4 w-3 shrink-0 items-center justify-center text-[10px] text-[var(--muted)]"
+                  <button type="button" className="flex h-4 w-3 items-center justify-center text-[10px] text-[var(--muted)]"
+                    aria-label={collapsed[t.id] ? "Expand" : "Collapse"}
                     onClick={() => setCollapsed((s) => ({ ...s, [t.id]: !s[t.id] }))}>
-                    <span className={`leading-none ${collapsed[t.id] ? "" : "rotate-90"}`}>▸</span>
+                    <span className={collapsed[t.id] ? "" : "rotate-90"}>▸</span>
                   </button>
-                ) : <span className="w-3 shrink-0" />}
+                ) : <span className="w-3" />}
                 <PriorityBars priority={t.priority} />
-                <span className="w-[58px] shrink-0 font-mono text-[12px] text-[var(--muted)]">{t.identifier}</span>
+                <span className="w-[62px] shrink-0 text-[12px] text-[var(--muted)]">{t.identifier}</span>
                 <StatusCircle category={t.status_category} name={t.status_name} />
                 {t.external_url ? (
-                  <a href={t.external_url} target="_blank" rel="noreferrer"
-                    className={`min-w-0 truncate text-[13px] hover:underline ${canceled ? "text-[var(--muted)] line-through" : "font-medium text-[var(--fg)]"}`}>
+                  <a href={t.external_url} target="_blank" rel="noreferrer" className={`min-w-0 truncate text-[13px] ${canceled ? "text-[var(--muted)] line-through" : "text-[var(--fg)]"}`} style={{ fontVariationSettings: "'wght' 510" }}>
                     {t.title}
                   </a>
                 ) : (
-                  <span className={`min-w-0 truncate text-[13px] font-medium ${canceled ? "text-[var(--muted)] line-through" : ""}`}>{t.title}</span>
+                  <span className={`min-w-0 truncate text-[13px] ${canceled ? "text-[var(--muted)] line-through" : ""}`} style={{ fontVariationSettings: "'wght' 510" }}>{t.title}</span>
                 )}
                 {stats && (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#f4f3ee] px-1.5 py-px text-[11px] text-[var(--muted)]">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#f3f3f3] px-1.5 text-[12px] text-[var(--muted)]">
                     <StatusCircle category={stats.done === stats.total && stats.total ? "done" : "todo"} />
                     {stats.done}/{stats.total}
                   </span>
                 )}
               </div>
               <div className="hidden items-center gap-1.5 sm:flex">
-                {(t.labels ?? []).slice(0, 2).map((l) => <Chip key={l} name={l} />)}
-                {showProject && t.project && (
-                  <Link href={`/projects/${t.project.id}`}><Chip name={t.project.name} tone="#4cb782" /></Link>
-                )}
-                {overdue && <span className="text-[11px] text-[#c45c26]">overdue</span>}
-                <span className={`w-[52px] text-right text-[12px] ${overdue ? "text-[#c45c26]" : "text-[var(--muted)]"}`}>
-                  {t.due_date ? fmtDate(t.due_date).replace(/ \d{4}$/, "") : ""}
+                {labels.slice(0, 2).map((l) => <Chip key={l} name={l} color={l.toLowerCase() === "social" ? "#f2c94c" : "#8a8f98"} />)}
+                {showProject && project && <Link href={`/projects/${project.id}`}><Chip name={project.name} color="#4cb782" /></Link>}
+                <span className={`w-[52px] text-right text-[12px] ${overdue ? "text-[#f2994a]" : "text-[var(--muted)]"}`}>{shortDate(t.due_date)}</span>
+                <span title={assignee?.display_name ?? "Unassigned"}
+                  className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#e8e8e8] text-[9px] font-medium text-[#3c4149]">
+                  {assignee ? initials(assignee.display_name) : "?"}
                 </span>
-                <Avatar name={t.assignee?.display_name} />
               </div>
             </li>
           );
@@ -165,4 +173,4 @@ export function TaskTable({ tasks, today, showProject = true }: { tasks: TaskRow
 }
 
 export const TASK_SELECT =
-  "id, identifier, title, status_name, status_category, due_date, completed_at, external_url, parent_task_id, priority, labels, project:projects(id,name), assignee:people(id,display_name)";
+  "id, identifier, title, status_name, status_category, due_date, completed_at, external_url, parent_task_id, priority, labels, project:projects!project_id(id,name), assignee:people!assignee_id(id,display_name)";
