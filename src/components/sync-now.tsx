@@ -15,7 +15,7 @@ export function SyncNow() {
         {pending ? "Syncing…" : "Sync now"}
       </button>
       {result?.message && (
-        <p className={`max-w-sm text-right text-xs ${result.ok ? "text-emerald-700" : "text-red-600"}`}>{result.message}</p>
+        <p className={`max-w-sm text-right text-[11px] ${result.ok ? "text-[#4e6438]" : "text-[#a33b2b]"}`}>{result.message}</p>
       )}
     </div>
   );

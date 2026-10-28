@@ -32,7 +32,7 @@ export default async function SyncPage() {
         <Card>
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={s.enabled ? "amber" : "neutral"}>{s.enabled ? "ON" : "OFF · dry run"}</Badge>
-            <p className="text-sm text-zinc-600">
+            <p className="text-[13px] text-[var(--muted)]">
               Issues Done for more than {s.after_days} days and stored in Pace. More than {s.max_batch} at once needs your approval. Pace never deletes.
             </p>
           </div>
@@ -42,9 +42,9 @@ export default async function SyncPage() {
               : "Nothing eligible right now."}
           </p>
           {candidates.length > 0 && (
-            <ul className="mt-2 max-h-48 space-y-1 overflow-auto text-sm text-zinc-600">
-              {candidates.slice(0, 25).map((c) => <li key={c.id} className="truncate"><span className="text-zinc-400">{c.identifier}</span> {c.title}</li>)}
-              {candidates.length > 25 && <li className="text-zinc-400">…and {candidates.length - 25} more</li>}
+            <ul className="mt-2 max-h-48 space-y-1 overflow-auto text-[13px] text-[var(--muted)]">
+              {candidates.slice(0, 25).map((c) => <li key={c.id} className="truncate"><span className="font-mono text-[12px]">{c.identifier}</span> {c.title}</li>)}
+              {candidates.length > 25 && <li>…and {candidates.length - 25} more</li>}
             </ul>
           )}
         </Card>
@@ -73,9 +73,8 @@ export default async function SyncPage() {
         <section>
           <SectionTitle>Import history (CSV)</SectionTitle>
           <Card>
-            <p className="mb-3 text-sm text-zinc-600">
-              Upload the closed-issues export (columns: id, title, parent_id, project, team, assignee, labels, priority, status, closed_type, closed_at, created_at, due_date, url).
-              Safe to re-run: existing rows are updated, and issues already synced from Linear are left alone.
+            <p className="mb-3 text-[13px] text-[var(--muted)]">
+              Upload the closed-issues export. Re-run to link parent/sub-issues. Existing Linear-synced issues are left alone.
             </p>
             <ActionForm action={importCsv} className="flex flex-wrap items-center gap-3">
               <input type="file" name="file" accept=".csv,text/csv" required className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-zinc-200" />
@@ -91,9 +90,9 @@ export default async function SyncPage() {
           <Card className="divide-y divide-zinc-100 !p-0">
             {runs.data.map((r) => (
               <div key={r.id} className="flex items-center gap-3 px-5 py-3 text-sm">
-                <Badge tone={r.status === "success" ? "emerald" : r.status === "error" ? "red" : "amber"}>{r.status}</Badge>
-                <span className="text-zinc-600">{r.trigger}</span>
-                <span className="min-w-0 flex-1 truncate text-xs text-zinc-400">
+                <Badge tone={r.status === "success" ? "green" : r.status === "error" ? "red" : "amber"}>{r.status}</Badge>
+                <span className="text-[13px]">{r.trigger}</span>
+                <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--muted)]">
                   {r.error ?? (r.counts && Object.keys(r.counts).length ? JSON.stringify(r.counts) : "")}
                 </span>
                 <span className="text-xs text-zinc-400">{timeAgo(r.started_at)}</span>

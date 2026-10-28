@@ -10,7 +10,7 @@ export default async function Settings() {
   const isAdmin = member.role === "admin";
   const s = archiveSettings(workspace.settings);
   const { data: members } = await supabase.from("members").select("id, display_name, role, created_at").order("created_at");
-  const input = "w-24 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100";
+  const input = "w-24 rounded-md border border-[var(--line)] bg-white px-2 py-1 text-[12px] outline-none focus:border-[var(--accent)]";
 
   return (
     <div className="space-y-10">
@@ -22,7 +22,7 @@ export default async function Settings() {
           {isAdmin ? (
             <ActionForm action={saveArchiveSettings} className="space-y-4">
               <label className="flex items-start gap-3 text-sm">
-                <input type="checkbox" name="enabled" defaultChecked={s.enabled} className="mt-0.5 h-4 w-4 accent-indigo-600" />
+                <input type="checkbox" name="enabled" defaultChecked={s.enabled} className="mt-0.5 h-3.5 w-3.5 accent-[var(--accent)]" />
                 <span>
                   <span className="font-medium">Enable archiving</span>
                   <span className="block text-zinc-500">Off = dry run only. When on, the daily sync archives eligible issues in Linear (never deletes).</span>
@@ -46,7 +46,7 @@ export default async function Settings() {
           {members?.map((m) => (
             <div key={m.id} className="flex items-center justify-between px-5 py-3 text-sm">
               <span>{m.display_name ?? "—"}</span>
-              <Badge tone={m.role === "admin" ? "indigo" : "neutral"}>{m.role}</Badge>
+              <Badge tone={m.role === "admin" ? "accent" : "neutral"}>{m.role}</Badge>
             </div>
           ))}
         </Card>

@@ -29,7 +29,7 @@ export async function importCsv(_prev: ActionState, formData: FormData): Promise
     if (file.size > 3_000_000) return { ok: false, message: "File too large (3 MB max)." };
     const r = await importClosedIssuesCsv(await file.text());
     refresh();
-    return { ok: true, message: `${r.rows} rows: ${r.created} new, ${r.updated} updated, ${r.skippedExistingFromLinear} skipped (already synced from Linear), ${r.events} events.` };
+    return { ok: true, message: `${r.rows} rows: ${r.created} new, ${r.updated} updated, ${r.parentsLinked} parent links, ${r.parentStubs} stub parents, ${r.skippedExistingFromLinear} skipped (already from Linear).` };
   } catch (e) { return { ok: false, message: msg(e) }; }
 }
 

@@ -6,6 +6,7 @@ export type ImportedTask = {
   identifier: string;
   title: string;
   parentIdentifier: string | null;
+  parentTitle: string | null;
   project: string | null;
   team: string | null;
   assignee: string | null;
@@ -39,6 +40,7 @@ export function mapCsvRow(r: Record<string, string>): ImportedTask | null {
     identifier: r.id,
     title: r.title,
     parentIdentifier: r.parent_id || null,
+    parentTitle: r.parent_title || null,
     project: r.project || null,
     team: r.team || null,
     assignee: r.assignee || null,

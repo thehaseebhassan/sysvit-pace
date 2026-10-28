@@ -49,8 +49,29 @@ describe("csv", () => {
       "MKT-8,LinkedIn — Mon Post (24 Aug),MKT-7,Social,ausverse-enviro,MARKETING,Afra Rahim,linkedin; social,Medium,Done,completed,2026-08-25T15:52:55.770Z,2026-08-25T15:47:59.431Z,2026-08-24,https://linear.app/x\n",
     );
     const t = mapCsvRow(row)!;
-    expect(t).toMatchObject({ identifier: "MKT-8", status_category: "done", priority: 3, labels: ["linkedin", "social"], due_date: "2026-08-24", parentIdentifier: "MKT-7" });
+    expect(t).toMatchObject({ identifier: "MKT-8", status_category: "done", priority: 3, labels: ["linkedin", "social"], due_date: "2026-08-24", parentIdentifier: "MKT-7", parentTitle: "Social" });
     expect(t.closed_at).toBe("2026-08-25T15:52:55.770Z");
+  });
+});
+
+describe("parent tree", () => {
+  it("nests children under parents and keeps orphans as roots", async () => {
+    const { nestTasks, missingParentIds } = await import("../src/lib/tasks/tree");
+    const nested = nestTasks([
+      { id: "p", parent_task_id: null, identifier: "DEV-30" },
+      { id: "c", parent_task_id: "p", identifier: "DEV-31" },
+      { id: "g", parent_task_id: "c", identifier: "DEV-36" },
+      { id: "o", parent_task_id: "missing", identifier: "MKT-1" },
+    ]);
+    expect(nested.map((n) => n.identifier)).toEqual(["DEV-30", "MKT-1"]);
+    expect(nested[0].children[0].children[0].identifier).toBe("DEV-36");
+    expect(missingParentIds([
+      { identifier: "MKT-8", parentIdentifier: "MKT-7", parentTitle: "Social" },
+      { identifier: "MKT-7", parentIdentifier: null, parentTitle: null },
+    ])).toEqual([]);
+    expect(missingParentIds([
+      { identifier: "MKT-8", parentIdentifier: "MKT-7", parentTitle: "Social" },
+    ])).toEqual([{ identifier: "MKT-7", title: "Social" }]);
   });
 });
 

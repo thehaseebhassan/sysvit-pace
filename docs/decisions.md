@@ -23,4 +23,5 @@ Format: date - decision - why / source.
 - 2026-10-29 - Webhooks (`/api/webhooks/linear`): HMAC-SHA256 on the raw body + 60s timestamp check (Linear docs); each Issue event re-fetches the issue and runs the same upsert as the cron.
 - 2026-10-29 - Archive: off by default. Eligible = source linear, Done > N days, not archived/deleted. When enabled: <= max_batch archived directly, more => pending batch needing admin approval in the UI. Only `issueArchive` is ever called.
 - 2026-10-29 - Hobby function duration default and max is 300s with fluid compute (Vercel docs); cron and sync-now routes set maxDuration 300.
-- 2026-10-29 - UI: light theme only, indigo accent, Tailwind only (no UI library); inline SVG icons.
+- 2026-10-29 - UI: cream/terracotta palette (`#faf9f5` / `#d97757`, Anthropic-adjacent, matches SYSVIT), forced light. Issue list follows Linear: nested tree with L-lines, status circles, priority bars, identifier, sub-issue  n/m  counts, label chips.
+- 2026-10-29 - CSV import creates stub parent tasks when `parent_id` is set but the parent isn't its own row; re-import links `parent_task_id` in bulk.

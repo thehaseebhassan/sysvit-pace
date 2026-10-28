@@ -101,10 +101,23 @@ export async function upsertIssues(sb: Admin, wsId: string, maps: Maps, issues: 
     ) as { id: string; external_id: string }[];
     known.forEach((r) => taskMap.set(r.external_id, r.id));
   }
-  for (const i of issues) {
+  const parentIdents = [...new Set(issues.map((i) => i.parent?.identifier).filter(Boolean) as string[])];
+  const parentByIdent = new Map<string, string>();
+  if (parentIdents.length) {
+    const known = check(
+      await sb.from("tasks").select("id, identifier").eq("workspace_id", wsId).in("identifier", parentIdents),
+      "lookup parents by identifier",
+    ) as { id: string; identifier: string }[];
+    known.forEach((r) => parentByIdent.set(r.identifier, r.id));
+  }
+  const parentLinks = issues.flatMap((i) => {
     const id = taskMap.get(i.id);
-    if (!id) continue;
-    check(await sb.from("tasks").update({ parent_task_id: i.parent ? (taskMap.get(i.parent.id) ?? null) : null }).eq("id", id), "set parent");
+    if (!id) return [];
+    const pid = i.parent ? (taskMap.get(i.parent.id) ?? parentByIdent.get(i.parent.identifier) ?? null) : null;
+    return [{ id, parent_task_id: pid }];
+  });
+  for (const part of chunk(parentLinks, 200)) {
+    check(await sb.from("tasks").upsert(part, { onConflict: "id" }), "set parent");
   }
 
   // events (idempotent: unique on task_id + source_event_key)

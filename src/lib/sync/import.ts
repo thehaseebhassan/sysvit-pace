@@ -1,4 +1,5 @@
 import "server-only";
+import { missingParentIds } from "@/lib/tasks/tree";
 import { csvToObjects } from "./csv";
 import { mapCsvRow, type ImportedTask } from "./import-map";
 import { adminDb, check, chunk, getWorkspace, type Admin } from "./db";
@@ -25,12 +26,25 @@ export async function importClosedIssuesCsv(text: string) {
   const sb = adminDb();
   const ws = await getWorkspace(sb);
   const tasks = csvToObjects(text).map(mapCsvRow).filter((t): t is ImportedTask => !!t);
-  const result = { rows: tasks.length, created: 0, updated: 0, skippedExistingFromLinear: 0, events: 0 };
+  const result = { rows: tasks.length, created: 0, updated: 0, skippedExistingFromLinear: 0, events: 0, parentsLinked: 0, parentStubs: 0 };
   if (!tasks.length) return result;
 
   const projects = await ensureNamed(sb, ws.id, "projects", "name", tasks.map((t) => t.project ?? ""));
   const teams = await ensureNamed(sb, ws.id, "teams", "name", tasks.map((t) => t.team ?? ""));
   const people = await ensureNamed(sb, ws.id, "people", "display_name", tasks.map((t) => t.assignee ?? ""));
+
+  // Parents that children mention but that aren't their own CSV row (still-open parents, etc.)
+  const stubs = missingParentIds(tasks);
+  for (const s of stubs) {
+    if (tasks.some((t) => t.identifier === s.identifier)) continue;
+    tasks.push({
+      identifier: s.identifier, title: s.title, parentIdentifier: null, parentTitle: null,
+      project: null, team: null, assignee: null, labels: [], priority: null,
+      status_name: "Imported parent", status_category: "done",
+      closed_at: null, created_at: null, due_date: null, url: null,
+    });
+    result.parentStubs++;
+  }
 
   // existing tasks by identifier: skip ones already synced from Linear, update earlier imports
   const existing = check(
@@ -60,17 +74,24 @@ export async function importClosedIssuesCsv(text: string) {
   ) as { id: string; external_id: string }[];
   const idByIdentifier = new Map(saved.map((r) => [r.external_id, r.id]));
 
-  // parent links where the parent is also known (imported or from Linear)
-  const parents = [...new Set(rows.map((t) => t.parentIdentifier).filter(Boolean) as string[])];
-  const parentRows = parents.length
-    ? (check(await sb.from("tasks").select("id, identifier").eq("workspace_id", ws.id).in("identifier", parents), "parents") as { id: string; identifier: string }[])
-    : [];
-  const parentId = new Map(parentRows.map((p) => [p.identifier, p.id]));
-  for (const t of rows) {
-    if (!t.parentIdentifier) continue;
-    const pid = parentId.get(t.parentIdentifier);
-    const id = idByIdentifier.get(t.identifier);
-    if (pid && id) check(await sb.from("tasks").update({ parent_task_id: pid }).eq("id", id), "link parent");
+  // Link sub-issues. Look up parents by identifier across all sources (import + Linear).
+  const parentKeys = [...new Set(rows.map((t) => t.parentIdentifier).filter(Boolean) as string[])];
+  if (parentKeys.length) {
+    const parentRows = check(
+      await sb.from("tasks").select("id, identifier").eq("workspace_id", ws.id).in("identifier", parentKeys),
+      "parents",
+    ) as { id: string; identifier: string }[];
+    const parentId = new Map(parentRows.map((p) => [p.identifier, p.id]));
+    saved.forEach((r) => idByIdentifier.set(r.external_id, r.id));
+    const links = rows.flatMap((t) => {
+      const id = idByIdentifier.get(t.identifier);
+      const pid = t.parentIdentifier ? parentId.get(t.parentIdentifier) : undefined;
+      return id && pid && id !== pid ? [{ id, parent_task_id: pid }] : [];
+    });
+    for (const part of chunk(links, 200)) {
+      check(await sb.from("tasks").upsert(part, { onConflict: "id" }), "link parents");
+    }
+    result.parentsLinked = links.length;
   }
 
   const events = rows.flatMap((t) => {

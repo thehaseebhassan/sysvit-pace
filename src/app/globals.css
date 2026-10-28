@@ -1,28 +1,38 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafaf9;
-  --foreground: #18181b;
-  --accent: #4f46e5;
+  --bg: #faf9f5;
+  --bg-raised: #ffffff;
+  --bg-sidebar: #f0eee6;
+  --fg: #141413;
+  --muted: #87867f;
+  --line: #e8e6dc;
+  --accent: #d97757;
+  --accent-hover: #c6613f;
+  --accent-soft: #f5e3c7;
   color-scheme: light;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
   --color-accent: var(--accent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+html { color-scheme: light; }
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  letter-spacing: -0.01em;
 }
 
-@keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.fade-up { animation: fade-up .35s ease both; }
+::selection { background: var(--accent-soft); }
+
 @keyframes grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-.grow-x { transform-origin: left; animation: grow-x .7s cubic-bezier(.2,.7,.2,1) both; }
-@media (prefers-reduced-motion: reduce) { .fade-up, .grow-x { animation: none; } }
+.grow-x { transform-origin: left; animation: grow-x .5s cubic-bezier(.2,.7,.2,1) both; }
+@media (prefers-reduced-motion: reduce) { .grow-x { animation: none; } }

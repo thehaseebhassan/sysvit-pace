@@ -49,7 +49,7 @@ export type LinearIssue = {
   assignee: { id: string; name: string; email: string | null } | null;
   team: { id: string } | null;
   project: { id: string } | null;
-  parent: { id: string } | null;
+  parent: { id: string; identifier: string } | null;
   labels: { nodes: { name: string }[] };
   history: {
     nodes: {
@@ -70,7 +70,7 @@ export const ISSUE_FIELDS = `
   assignee { id name email }
   team { id }
   project { id }
-  parent { id }
+  parent { id identifier }
   labels(first: 10) { nodes { name } }
   history(first: 50) { nodes {
     id createdAt
