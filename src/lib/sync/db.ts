@@ -28,6 +28,26 @@ export function check<T>(res: { data: T | null; error: { message: string } | nul
 }
 
 /**
+ * Set (or clear) parent_task_id for many tasks.
+ * Uses UPDATE, never upsert: an upsert of {id, parent_task_id} is an INSERT first, and that
+ * fails on the NOT NULL columns (workspace_id, title, ...) before conflict handling runs.
+ */
+export async function setParents(sb: Admin, links: { id: string; parent: string | null }[]) {
+  const groups = new Map<string | null, string[]>();
+  for (const l of links) {
+    if (l.parent === l.id) continue;
+    const ids = groups.get(l.parent) ?? [];
+    ids.push(l.id);
+    groups.set(l.parent, ids);
+  }
+  for (const [parent, ids] of groups) {
+    for (const part of chunk(ids, 80)) {
+      check(await sb.from("tasks").update({ parent_task_id: parent }).in("id", part), "set parent");
+    }
+  }
+}
+
+/**
  * Rows created by the CSV import (source = 'import') are "adopted" when the same thing
  * shows up in Linear: we flip them to source = 'linear' and give them the Linear id,
  * so history is kept and nothing is duplicated.

@@ -10,14 +10,14 @@ export type ActionState = { ok?: boolean; message?: string };
 const refresh = () => revalidatePath("/", "layout");
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-export async function syncNow(): Promise<ActionState> {
+export async function syncNow(full = false): Promise<ActionState> {
   try {
     await requireAdmin();
-    const r = await runSync("manual");
+    const r = await runSync("manual", { full });
     if (!r.ok) return { ok: false, message: `Sync failed: ${r.error}` };
     const a = await runArchiveStep().catch((e) => ({ error: msg(e) }));
     refresh();
-    return { ok: true, message: `Synced ${r.counts.tasks} tasks (${r.counts.mode}). Archive: ${JSON.stringify(a)}` };
+    return { ok: true, message: `Synced ${r.counts.tasks} issues, ${r.counts.parents} sub-issue links (${r.counts.mode}). Archive: ${JSON.stringify(a)}` };
   } catch (e) { return { ok: false, message: msg(e) }; }
 }
 

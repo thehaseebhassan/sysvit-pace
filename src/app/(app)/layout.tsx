@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Sidebar } from "@/components/sidebar";
+import { MobileNav, Sidebar } from "@/components/sidebar";
 import { getContext } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
 
@@ -10,25 +10,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!ctx) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-        <h1 className="text-base font-semibold">No access</h1>
-        <p className="max-w-sm text-sm text-[var(--muted)]">{user.email} isn’t a member of this workspace.</p>
-        <form action={logout}><button className="text-sm">Sign out</button></form>
+        <h1 className="text-[16px] font-[590]">No access</h1>
+        <p className="max-w-sm text-[13px] text-[var(--muted)]">{user.email} isn’t a member of this workspace.</p>
+        <form action={logout}><button className="btn">Sign out</button></form>
       </main>
     );
   }
 
   return (
-    <div className="flex min-h-full flex-1">
-      <aside className="hidden w-[240px] shrink-0 md:block">
+    <div className="flex min-h-full flex-1 flex-col md:flex-row">
+      <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 border-r border-[var(--graphite)] bg-[var(--carbon)] md:block">
         <Sidebar workspace={ctx.workspace.name} email={user.email} logout={logout} />
       </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between px-4 py-3 md:hidden">
-          <span className="font-semibold">Pace</span>
-          <form action={logout}><button className="text-sm text-[var(--muted)]">Sign out</button></form>
-        </header>
-        <main className="min-w-0 flex-1 p-4 md:p-8">{children}</main>
-      </div>
+      <MobileNav logout={logout} />
+      <main className="min-w-0 flex-1 px-4 py-6 md:px-10 md:py-8">
+        <div className="mx-auto w-full max-w-[1200px]">{children}</div>
+      </main>
     </div>
   );
 }

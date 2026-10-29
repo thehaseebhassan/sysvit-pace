@@ -24,26 +24,26 @@ export default async function SyncPage() {
   const lastOk = runs.data?.find((r) => r.status === "success" && r.trigger !== "import");
 
   return (
-    <div className="space-y-10">
+    <div className="max-w-[860px] space-y-10">
       <PageHeader title="Sync" subtitle={`Linear → Pace. Last successful sync ${timeAgo(lastOk?.finished_at)}.`} actions={isAdmin ? <SyncNow /> : undefined} />
 
       <section>
         <SectionTitle>Archive in Linear</SectionTitle>
-        <Card>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={s.enabled ? "amber" : "neutral"}>{s.enabled ? "ON" : "OFF · dry run"}</Badge>
+        <Card className="!p-5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Badge tone={s.enabled ? "green" : "neutral"}>{s.enabled ? "ON" : "OFF · dry run"}</Badge>
             <p className="text-[13px] text-[var(--muted)]">
               Issues Done for more than {s.after_days} days and stored in Pace. More than {s.max_batch} at once needs your approval. Pace never deletes.
             </p>
           </div>
-          <p className="mt-3 text-sm">
+          <p className="mt-4 text-[13px]">
             {candidates.length
               ? <>{candidates.length} issue{candidates.length === 1 ? "" : "s"} {s.enabled ? "eligible" : "would be archived"}:</>
-              : "Nothing eligible right now."}
+              : <span className="text-[var(--muted)]">Nothing eligible right now.</span>}
           </p>
           {candidates.length > 0 && (
             <ul className="mt-2 max-h-48 space-y-1 overflow-auto text-[13px] text-[var(--muted)]">
-              {candidates.slice(0, 25).map((c) => <li key={c.id} className="truncate"><span className="font-mono text-[12px]">{c.identifier}</span> {c.title}</li>)}
+              {candidates.slice(0, 25).map((c) => <li key={c.id} className="truncate"><span className="mono text-[12px]">{c.identifier}</span> {c.title}</li>)}
               {candidates.length > 25 && <li>…and {candidates.length - 25} more</li>}
             </ul>
           )}
@@ -52,18 +52,18 @@ export default async function SyncPage() {
         {pending.data?.map((b) => {
           const items = (b.archive_candidates ?? []) as unknown as { task_id: string; tasks: { identifier: string; title: string } | null }[];
           return (
-            <Card key={b.id} className="mt-4 !border-amber-300 !bg-amber-50/40">
-              <p className="font-medium">Waiting for approval: {items.length} issues</p>
-              <p className="text-sm text-zinc-500">{b.reason}</p>
-              <ul className="mt-3 max-h-64 space-y-1 overflow-auto text-sm">
-                {items.map((i) => <li key={i.task_id} className="truncate"><span className="text-zinc-400">{i.tasks?.identifier}</span> {i.tasks?.title}</li>)}
+            <Card key={b.id} className="mt-4 !p-5 !border-[var(--smoke)]">
+              <p className="text-[14px] font-[510]">Waiting for approval · {items.length} issues</p>
+              <p className="text-[13px] text-[var(--muted)]">{b.reason}</p>
+              <ul className="mt-3 max-h-64 space-y-1 overflow-auto text-[13px]">
+                {items.map((i) => <li key={i.task_id} className="truncate"><span className="mono text-[12px] text-[var(--muted)]">{i.tasks?.identifier}</span> {i.tasks?.title}</li>)}
               </ul>
               {isAdmin ? (
                 <div className="mt-4 flex gap-2">
-                  <form action={approveBatch}><input type="hidden" name="batchId" value={b.id} /><SubmitButton pendingText="Archiving…">Approve and archive {items.length}</SubmitButton></form>
+                  <form action={approveBatch}><input type="hidden" name="batchId" value={b.id} /><SubmitButton variant="dark" pendingText="Archiving…">Approve and archive {items.length}</SubmitButton></form>
                   <form action={rejectBatch}><input type="hidden" name="batchId" value={b.id} /><SubmitButton variant="default">Reject</SubmitButton></form>
                 </div>
-              ) : <p className="mt-3 text-sm text-zinc-500">An admin needs to approve this.</p>}
+              ) : <p className="mt-3 text-[13px] text-[var(--muted)]">An admin needs to approve this.</p>}
             </Card>
           );
         })}
@@ -72,13 +72,13 @@ export default async function SyncPage() {
       {isAdmin && (
         <section>
           <SectionTitle>Import history (CSV)</SectionTitle>
-          <Card>
-            <p className="mb-3 text-[13px] text-[var(--muted)]">
-              Upload the closed-issues export. Re-run to link parent/sub-issues. Existing Linear-synced issues are left alone.
+          <Card className="!p-5">
+            <p className="mb-4 text-[13px] text-[var(--muted)]">
+              Upload the closed-issues export. Safe to re-run: it rebuilds parent / sub-issue links and labels. Issues already synced from Linear are left alone.
             </p>
             <ActionForm action={importCsv} className="flex flex-wrap items-center gap-3">
-              <input type="file" name="file" accept=".csv,text/csv" required className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-zinc-200" />
-              <SubmitButton pendingText="Importing…">Import</SubmitButton>
+              <input type="file" name="file" accept=".csv,text/csv" required className="text-[13px] file:mr-3 file:h-8 file:cursor-pointer file:rounded-[6px] file:border file:border-[var(--graphite)] file:bg-[var(--canvas)] file:px-3 file:text-[13px] file:font-[510] hover:file:bg-[var(--carbon)]" />
+              <SubmitButton variant="default" pendingText="Importing…">Import</SubmitButton>
             </ActionForm>
           </Card>
         </section>
@@ -87,18 +87,18 @@ export default async function SyncPage() {
       <section>
         <SectionTitle>Recent runs</SectionTitle>
         {runs.data?.length ? (
-          <Card className="divide-y divide-zinc-100 !p-0">
+          <div className="card divide-hair overflow-hidden">
             {runs.data.map((r) => (
-              <div key={r.id} className="flex items-center gap-3 px-5 py-3 text-sm">
-                <Badge tone={r.status === "success" ? "green" : r.status === "error" ? "red" : "amber"}>{r.status}</Badge>
-                <span className="text-[13px]">{r.trigger}</span>
-                <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--muted)]">
+              <div key={r.id} className="flex items-center gap-3 px-4 py-3 text-[13px]">
+                <Badge tone={r.status === "success" ? "green" : r.status === "error" ? "red" : "neutral"}>{r.status}</Badge>
+                <span className="w-16 shrink-0">{r.trigger}</span>
+                <span className="mono min-w-0 flex-1 truncate text-[12px] text-[var(--muted)]">
                   {r.error ?? (r.counts && Object.keys(r.counts).length ? JSON.stringify(r.counts) : "")}
                 </span>
-                <span className="text-xs text-zinc-400">{timeAgo(r.started_at)}</span>
+                <span className="shrink-0 text-[12px] text-[var(--faint)]">{timeAgo(r.started_at)}</span>
               </div>
             ))}
-          </Card>
+          </div>
         ) : <EmptyState title="No runs yet" hint={isAdmin ? "Press “Sync now”, or wait for the daily job." : "An admin can start the first sync."} />}
       </section>
     </div>

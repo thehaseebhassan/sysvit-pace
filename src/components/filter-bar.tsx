@@ -7,8 +7,13 @@ const STATUSES = [
   { v: "", l: "All" }, { v: "open", l: "Open" }, { v: "in_progress", l: "In progress" },
   { v: "done", l: "Done" }, { v: "canceled", l: "Canceled" },
 ];
+const GROUPS = [{ v: "project", l: "Group: Project" }, { v: "status", l: "Group: Status" }, { v: "none", l: "No grouping" }];
 
-export function FilterBar({ projects, people }: { projects: { id: string; name: string }[]; people: { id: string; display_name: string }[] }) {
+export function FilterBar({ projects, people, labels }: {
+  projects: { id: string; name: string }[];
+  people: { id: string; display_name: string }[];
+  labels: string[];
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -28,29 +33,43 @@ export function FilterBar({ projects, people }: { projects: { id: string; name: 
   }, [q]);
 
   const status = sp.get("status") ?? "";
-  const flag = sp.get("flag") ?? "";
-  const sel = "h-8 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2.5 text-sm outline-none focus:border-[var(--accent)]";
-  const chip = (on: boolean) => `h-8 rounded-lg px-3 text-sm ${on ? "bg-[var(--fg)] text-white" : "text-[var(--muted)] hover:bg-white"}`;
+  const active = ["status", "project", "assignee", "label", "flag", "q"].some((k) => sp.get(k));
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" aria-label="Search issues" className={`${sel} w-48`} />
-      <select aria-label="Project" className={sel} value={sp.get("project") ?? ""} onChange={(e) => set("project", e.target.value)}>
-        <option value="">All projects</option>
-        {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-      </select>
-      <select aria-label="Assignee" className={sel} value={sp.get("assignee") ?? ""} onChange={(e) => set("assignee", e.target.value)}>
-        <option value="">Everyone</option>
-        <option value="none">Unassigned</option>
-        {people.map((p) => <option key={p.id} value={p.id}>{p.display_name}</option>)}
-      </select>
-      <div className="flex flex-wrap gap-1">
-        {STATUSES.map((s) => (
-          <button key={s.v} className={chip(status === s.v && !flag)} onClick={() => { const n = new URLSearchParams(sp.toString()); n.delete("flag"); if (s.v) n.set("status", s.v); else n.delete("status"); router.replace(`${pathname}?${n.toString()}`, { scroll: false }); }}>
-            {s.l}
-          </button>
-        ))}
-        <button className={chip(flag === "overdue")} onClick={() => set("flag", flag === "overdue" ? "" : "overdue")}>Overdue</button>
+    <div className="mb-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div role="group" aria-label="Status" className="mr-1 inline-flex rounded-[6px] border border-[var(--graphite)] p-0.5">
+          {STATUSES.map((s) => (
+            <button key={s.v} type="button" onClick={() => set("status", s.v)} aria-pressed={status === s.v}
+              className={`h-7 rounded-[4px] px-2.5 text-[13px] ${status === s.v ? "bg-[var(--ink)] font-[510] text-white" : "text-[var(--muted)] hover:bg-[var(--obsidian)] hover:text-[var(--ink)]"}`}>
+              {s.l}
+            </button>
+          ))}
+        </div>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search issues…" aria-label="Search issues" className="input w-52" />
+        <select aria-label="Project" className="select" value={sp.get("project") ?? ""} onChange={(e) => set("project", e.target.value)}>
+          <option value="">All projects</option>
+          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <select aria-label="Assignee" className="select" value={sp.get("assignee") ?? ""} onChange={(e) => set("assignee", e.target.value)}>
+          <option value="">Anyone</option>
+          <option value="none">Unassigned</option>
+          {people.map((p) => <option key={p.id} value={p.id}>{p.display_name}</option>)}
+        </select>
+        <select aria-label="Label" className="select" value={sp.get("label") ?? ""} onChange={(e) => set("label", e.target.value)}>
+          <option value="">All labels</option>
+          {labels.map((l) => <option key={l} value={l}>{l}</option>)}
+        </select>
+      <label className="flex h-8 items-center gap-2 px-1 text-[13px] text-[var(--muted)]">
+        <input type="checkbox" checked={sp.get("flag") === "overdue"} onChange={(e) => set("flag", e.target.checked ? "overdue" : "")} className="h-3.5 w-3.5 accent-[var(--ink)]" />
+        Overdue only
+      </label>
+        <select aria-label="Grouping" className="select ml-auto" value={sp.get("group") ?? "project"} onChange={(e) => set("group", e.target.value === "project" ? "" : e.target.value)}>
+          {GROUPS.map((g) => <option key={g.v} value={g.v}>{g.l}</option>)}
+        </select>
+        {active && (
+          <button type="button" className="btn" onClick={() => { setQ(""); router.replace(`${pathname}${sp.get("group") ? `?group=${sp.get("group")}` : ""}`, { scroll: false }); }}>Clear</button>
+        )}
       </div>
     </div>
   );
