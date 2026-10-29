@@ -1,7 +1,7 @@
 import "server-only";
 import { fetchIssueById, fetchIssuePage, linearGql, type LinearIssue } from "@/lib/linear/client";
 import { categoryFromStateType, deriveEvents, projectCategory } from "@/lib/linear/map";
-import { adminDb, adoptImported, check, chunk, getWorkspace, type Admin } from "./db";
+import { adminDb, adoptImported, check, chunk, getWorkspace, setParents, type Admin } from "./db";
 
 type IdMap = Map<string, string>; // linear external_id -> pace uuid
 type Maps = { teams: IdMap; people: IdMap; projects: IdMap };
@@ -53,8 +53,11 @@ export async function syncReference(sb: Admin, wsId: string): Promise<Maps> {
 }
 
 // ---------- issues ----------
+/** child (Pace uuid) -> parent as Linear knows it. Resolved once every issue is stored. */
+export type ParentLink = { id: string; parentExternalId: string | null; parentIdentifier: string | null };
+
 export async function upsertIssues(sb: Admin, wsId: string, maps: Maps, issues: LinearIssue[]) {
-  if (!issues.length) return { tasks: 0, events: 0 };
+  if (!issues.length) return { tasks: 0, events: 0, links: [] as ParentLink[] };
 
   // assignees we have not seen in the users list (e.g. since removed)
   const missing = issues.filter((i) => i.assignee && !maps.people.has(i.assignee.id));
@@ -92,33 +95,10 @@ export async function upsertIssues(sb: Admin, wsId: string, maps: Maps, issues: 
   ) as { id: string; external_id: string }[];
   const taskMap: IdMap = new Map(saved.map((r) => [r.external_id, r.id]));
 
-  // parent links (parents may be older tasks already in Pace)
-  const parentIds = [...new Set(issues.map((i) => i.parent?.id).filter(Boolean) as string[])];
-  if (parentIds.length) {
-    const known = check(
-      await sb.from("tasks").select("id, external_id").eq("workspace_id", wsId).eq("source", "linear").in("external_id", parentIds),
-      "lookup parents",
-    ) as { id: string; external_id: string }[];
-    known.forEach((r) => taskMap.set(r.external_id, r.id));
-  }
-  const parentIdents = [...new Set(issues.map((i) => i.parent?.identifier).filter(Boolean) as string[])];
-  const parentByIdent = new Map<string, string>();
-  if (parentIdents.length) {
-    const known = check(
-      await sb.from("tasks").select("id, identifier").eq("workspace_id", wsId).in("identifier", parentIdents),
-      "lookup parents by identifier",
-    ) as { id: string; identifier: string }[];
-    known.forEach((r) => parentByIdent.set(r.identifier, r.id));
-  }
-  const parentLinks = issues.flatMap((i) => {
+  const links: ParentLink[] = issues.flatMap((i) => {
     const id = taskMap.get(i.id);
-    if (!id) return [];
-    const pid = i.parent ? (taskMap.get(i.parent.id) ?? parentByIdent.get(i.parent.identifier) ?? null) : null;
-    return [{ id, parent_task_id: pid }];
+    return id ? [{ id, parentExternalId: i.parent?.id ?? null, parentIdentifier: i.parent?.identifier ?? null }] : [];
   });
-  for (const part of chunk(parentLinks, 200)) {
-    check(await sb.from("tasks").upsert(part, { onConflict: "id" }), "set parent");
-  }
 
   // events (idempotent: unique on task_id + source_event_key)
   const events = issues.flatMap((i) => {
@@ -128,13 +108,49 @@ export async function upsertIssues(sb: Admin, wsId: string, maps: Maps, issues: 
   for (const part of chunk(events, 500)) {
     check(await sb.from("task_events").upsert(part, { onConflict: "task_id,source_event_key", ignoreDuplicates: true }), "upsert events");
   }
-  return { tasks: taskRows.length, events: events.length };
+  return { tasks: taskRows.length, events: events.length, links };
+}
+
+/**
+ * Point children at their parents. Runs AFTER all pages are stored, so a child that arrives
+ * before its parent (Linear pages by updatedAt) still gets linked. Parents already in Pace
+ * from earlier runs or the CSV import are found by Linear id, then by identifier.
+ */
+export async function linkParents(sb: Admin, wsId: string, links: ParentLink[]) {
+  if (!links.length) return { linked: 0, cleared: 0, unresolved: 0 };
+  const byExternal = new Map<string, string>();
+  const byIdent = new Map<string, string>();
+  const ext = [...new Set(links.map((l) => l.parentExternalId).filter(Boolean) as string[])];
+  const idents = [...new Set(links.map((l) => l.parentIdentifier).filter(Boolean) as string[])];
+  for (const part of chunk(ext, 80)) {
+    const rows = check(
+      await sb.from("tasks").select("id, external_id").eq("workspace_id", wsId).eq("source", "linear").in("external_id", part),
+      "lookup parents",
+    ) as { id: string; external_id: string }[];
+    rows.forEach((r) => byExternal.set(r.external_id, r.id));
+  }
+  for (const part of chunk(idents, 120)) {
+    const rows = check(
+      await sb.from("tasks").select("id, identifier").eq("workspace_id", wsId).in("identifier", part),
+      "lookup parents by identifier",
+    ) as { id: string; identifier: string }[];
+    rows.forEach((r) => byIdent.set(r.identifier, r.id));
+  }
+  const out: { id: string; parent: string | null }[] = [];
+  let unresolved = 0;
+  for (const l of links) {
+    if (!l.parentExternalId && !l.parentIdentifier) { out.push({ id: l.id, parent: null }); continue; }
+    const pid = (l.parentExternalId && byExternal.get(l.parentExternalId)) || (l.parentIdentifier && byIdent.get(l.parentIdentifier)) || null;
+    if (pid) out.push({ id: l.id, parent: pid }); else unresolved++; // leave as-is rather than wipe a good link
+  }
+  await setParents(sb, out);
+  return { linked: out.filter((o) => o.parent).length, cleared: out.filter((o) => !o.parent).length, unresolved };
 }
 
 // ---------- full / incremental run ----------
 export type SyncTrigger = "cron" | "webhook" | "manual";
 
-export async function runSync(trigger: SyncTrigger) {
+export async function runSync(trigger: SyncTrigger, opts: { full?: boolean } = {}) {
   const sb = adminDb();
   const ws = await getWorkspace(sb);
   const run = check(
@@ -146,21 +162,25 @@ export async function runSync(trigger: SyncTrigger) {
     const { data: last } = await sb.from("sync_runs").select("cursor")
       .eq("workspace_id", ws.id).eq("status", "success").not("cursor", "is", null)
       .order("started_at", { ascending: false }).limit(1).maybeSingle();
-    const since = last?.cursor ? new Date(new Date(last.cursor).getTime() - OVERLAP_MS).toISOString() : null;
+    const since = last?.cursor && !opts.full ? new Date(new Date(last.cursor).getTime() - OVERLAP_MS).toISOString() : null;
 
     const maps = await syncReference(sb, ws.id);
     let after: string | null = null;
     let maxUpdated: string | null = last?.cursor ?? null;
-    const counts = { tasks: 0, events: 0, pages: 0, mode: since ? "incremental" : "backfill" };
+    const counts = { tasks: 0, events: 0, pages: 0, parents: 0, mode: since ? "incremental" : "backfill" };
+    const allLinks: ParentLink[] = [];
 
     for (;;) {
       const page = await fetchIssuePage({ after, updatedAfter: since });
       const r = await upsertIssues(sb, ws.id, maps, page.nodes);
       counts.tasks += r.tasks; counts.events += r.events; counts.pages++;
+      allLinks.push(...r.links);
       for (const n of page.nodes) if (!maxUpdated || n.updatedAt > maxUpdated) maxUpdated = n.updatedAt;
       if (!page.pageInfo.hasNextPage) break;
       after = page.pageInfo.endCursor;
     }
+
+    counts.parents = (await linkParents(sb, ws.id, allLinks)).linked;
 
     check(await sb.from("sync_runs").update({
       status: "success", cursor: maxUpdated, counts, finished_at: new Date().toISOString(),
@@ -180,7 +200,8 @@ export async function syncSingleIssue(linearId: string) {
   const issue = await fetchIssueById(linearId);
   if (!issue) return { found: false };
   const maps = await syncReference(sb, ws.id);
-  await upsertIssues(sb, ws.id, maps, [issue]);
+  const r = await upsertIssues(sb, ws.id, maps, [issue]);
+  await linkParents(sb, ws.id, r.links);
   return { found: true };
 }
 

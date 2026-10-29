@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Card, EmptyState, PageHeader, ProgressBar, SectionTitle, StatusDot } from "@/components/ui";
+import { Badge, Card, EmptyState, PageHeader, ProgressBar, SectionTitle, StatusIcon } from "@/components/ui";
 import { requireCtx } from "@/lib/auth";
 import { dateInTz, weekStart } from "@/lib/weeks";
 import { fmtDate, timeAgo } from "@/lib/format";
@@ -14,7 +14,7 @@ export default async function Overview() {
     supabase.from("v_assignee_workload").select("assignee_id, open_tasks, overdue_tasks"),
     supabase.from("v_project_progress").select("project_id, project_name, total_tasks, done_tasks, open_tasks, overdue_tasks, percent_done").order("open_tasks", { ascending: false }).limit(6),
     supabase.from("v_weekly_done").select("done_count").eq("week_start", thisWeek),
-    supabase.from("v_flagged_tasks").select("task_id, identifier, title, due_date, is_overdue, is_unassigned, external_url").order("due_date", { nullsFirst: false }).limit(8),
+    supabase.from("v_flagged_tasks").select("task_id, identifier, title, due_date, is_overdue, is_unassigned").order("due_date", { nullsFirst: false }).limit(8),
     supabase.from("sync_runs").select("status, finished_at, started_at, error, trigger").eq("status", "success").order("started_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
@@ -28,60 +28,62 @@ export default async function Overview() {
     { label: "Open", value: open, href: "/tasks?status=open" },
     { label: "Done this week", value: doneWeek, href: "/reports/weekly" },
     { label: "Overdue", value: overdue, href: "/tasks?flag=overdue", warn: overdue > 0 },
-    { label: "Unassigned", value: unassigned, href: "/tasks?status=open&assignee=none", warn: unassigned > 0 },
+    { label: "Unassigned", value: unassigned, href: "/tasks?status=open&assignee=none" },
   ];
 
   return (
     <div>
       <PageHeader title="Overview" subtitle={`Week of ${fmtDate(thisWeek)} · last sync ${timeAgo(lastRun.data?.finished_at)}`} />
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((s) => (
-          <Card key={s.label} href={s.href}>
-            <p className="text-sm text-[var(--muted)]">{s.label}</p>
-            <p className={`mt-1 text-3xl font-semibold tracking-tight ${s.warn ? "text-[var(--accent)]" : ""}`}>{s.value}</p>
+          <Card key={s.label} href={s.href} className="!p-5">
+            <p className="text-[13px] text-[var(--muted)]">{s.label}</p>
+            <p className={`mt-2 text-[32px] font-normal leading-[1.1] tracking-[-0.022em] tnum ${s.warn ? "text-[#c23a3a]" : ""}`}>{s.value}</p>
           </Card>
         ))}
       </div>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-5">
+      <div className="mt-10 grid gap-8 lg:grid-cols-5">
         <section className="lg:col-span-3">
-          <SectionTitle aside={<Link href="/projects" className="text-sm text-[var(--accent)] hover:underline">All projects</Link>}>Projects</SectionTitle>
+          <SectionTitle aside={<Link href="/projects" className="text-[13px] text-[var(--muted)] hover:text-[var(--ink)]">All projects →</Link>}>Projects</SectionTitle>
           {progress.data?.length ? (
-            <Card className="divide-y divide-[var(--line)] !p-0">
+            <div className="card divide-hair overflow-hidden">
               {progress.data.map((p) => (
-                <Link key={p.project_id} href={`/projects/${p.project_id}`} className="block px-4 py-3 hover:bg-[#faf9f6]">
-                  <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                    <span className="truncate font-medium">{p.project_name}</span>
-                    <span className="text-[var(--muted)]">{p.done_tasks}/{p.total_tasks}</span>
+                <Link key={p.project_id} href={`/projects/${p.project_id}`} className="block px-4 py-3 hover:bg-[var(--carbon)]">
+                  <div className="mb-2 flex items-center justify-between gap-3 text-[13px]">
+                    <span className="truncate font-[510]">{p.project_name}</span>
+                    <span className="text-[var(--muted)] tnum">{p.done_tasks}/{p.total_tasks}</span>
                   </div>
                   <ProgressBar value={p.percent_done} />
                 </Link>
               ))}
-            </Card>
+            </div>
           ) : <EmptyState title="No projects yet" hint="Import history or run Sync." />}
         </section>
+
         <section className="lg:col-span-2">
           <SectionTitle>Needs attention</SectionTitle>
           {flagged.data?.length ? (
-            <Card className="divide-y divide-[var(--line)] !p-0">
+            <div className="card divide-hair overflow-hidden">
               {flagged.data.map((t) => (
-                <div key={t.task_id} className="flex items-start gap-2 px-4 py-3">
-                  <StatusDot category={t.is_overdue ? "todo" : "backlog"} />
+                <Link key={t.task_id} href={`/tasks/${t.task_id}`} className="flex items-start gap-2.5 px-4 py-3 hover:bg-[var(--carbon)]">
+                  <span className="mt-[3px]"><StatusIcon category="todo" /></span>
                   <div className="min-w-0">
-                    <a href={t.external_url ?? "#"} target="_blank" rel="noreferrer" className="block truncate text-sm hover:underline">{t.title}</a>
-                    <div className="mt-1 flex gap-1.5 text-xs">
-                      <span className="font-mono text-[var(--muted)]">{t.identifier}</span>
+                    <p className="truncate text-[13px]">{t.title}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <span className="mono text-[12px] text-[var(--muted)]">{t.identifier}</span>
                       {t.is_overdue && <Badge tone="red">overdue {fmtDate(t.due_date)}</Badge>}
-                      {t.is_unassigned && <Badge tone="amber">unassigned</Badge>}
+                      {t.is_unassigned && <Badge>unassigned</Badge>}
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
-            </Card>
+            </div>
           ) : <EmptyState title="All clear" />}
         </section>
       </div>
-      <p className="mt-6 text-xs text-[var(--muted)]">{fmtDate(today)} · {tz}</p>
+      <p className="mt-8 text-[12px] text-[var(--faint)]">{fmtDate(today)} · {tz}</p>
     </div>
   );
 }

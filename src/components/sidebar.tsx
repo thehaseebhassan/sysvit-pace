@@ -3,55 +3,78 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { icons } from "./icons";
+import { Avatar } from "./ui";
 
-const NAV = [
-  { href: "/", label: "Overview" },
-  { href: "/tasks", label: "Issues" },
-  { href: "/projects", label: "Projects" },
-  { href: "/people", label: "People" },
-  { href: "/reports/weekly", label: "Weekly" },
-  { href: "/sync", label: "Sync" },
-  { href: "/settings", label: "Settings" },
+const WORK = [
+  { href: "/", label: "Overview", icon: icons.overview },
+  { href: "/tasks", label: "Issues", icon: icons.issues },
+  { href: "/projects", label: "Projects", icon: icons.projects },
+  { href: "/people", label: "People", icon: icons.people },
+  { href: "/reports/weekly", label: "Weekly", icon: icons.weekly },
+];
+const ADMIN = [
+  { href: "/sync", label: "Sync", icon: icons.sync },
+  { href: "/settings", label: "Settings", icon: icons.settings },
 ];
 
-const ICON: Record<string, React.ReactNode> = {
-  "/": icons.overview,
-  "/tasks": icons.issues,
-  "/projects": icons.projects,
-  "/people": icons.people,
-  "/reports/weekly": icons.weekly,
-  "/sync": icons.sync,
-  "/settings": icons.settings,
-};
+const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+
+function Mark() {
+  return (
+    <span className="flex h-6 w-6 items-center justify-center rounded-[6px] bg-[var(--ink)] text-[13px] font-[590] text-white" aria-hidden>P</span>
+  );
+}
 
 export function Sidebar({ workspace, email, logout }: { workspace: string; email?: string; logout: () => Promise<void> }) {
   const pathname = usePathname();
+  const link = (item: (typeof WORK)[number]) => (
+    <Link key={item.href} href={item.href} className="nav-item" aria-current={isActive(pathname, item.href) ? "page" : undefined}>
+      {item.icon}
+      {item.label}
+    </Link>
+  );
   return (
-    <div className="flex h-full flex-col px-3 py-4">
-      <div className="mb-6 px-2">
-        <p className="text-[15px] font-semibold tracking-tight">Pace</p>
-        <p className="mt-0.5 text-[12px] text-[var(--muted)]">{workspace}</p>
+    <div className="flex h-full flex-col px-3 py-3">
+      <div className="flex items-center gap-2.5 px-2 py-1.5">
+        <Mark />
+        <div className="min-w-0 leading-tight">
+          <p className="text-[14px] font-[590] tracking-[-0.013em]">Pace</p>
+          <p className="truncate text-[12px] text-[var(--muted)]">{workspace}</p>
+        </div>
       </div>
-      <nav aria-label="Main" className="flex flex-col gap-0.5">
-        {NAV.map((item) => {
-          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-          return (
-            <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined}
-              className={`flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[14px] ${
-                active ? "bg-white text-[var(--fg)] shadow-[0_0_0_1px_var(--line)]" : "text-[var(--muted)] hover:bg-white/70 hover:text-[var(--fg)]"
-              }`}>
-              <span className={active ? "text-[var(--accent)]" : ""}>{ICON[item.href]}</span>
-              {item.label}
-            </Link>
-          );
-        })}
+      <nav aria-label="Main" className="mt-4 flex flex-col gap-0.5">
+        {WORK.map(link)}
+        <p className="nav-label">Admin</p>
+        {ADMIN.map(link)}
       </nav>
-      <div className="mt-auto border-t border-[var(--line)] px-2 pt-3">
-        <p className="truncate text-[12px] text-[var(--muted)]">{email}</p>
-        <form action={logout}>
-          <button className="mt-1 text-[12px] text-[var(--muted)] hover:text-[var(--fg)]">Sign out</button>
-        </form>
+      <div className="mt-auto flex items-center gap-2 border-t border-[var(--graphite)] px-2 pt-3">
+        <Avatar name={email ?? "?"} size={24} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12px] text-[var(--text-2)]">{email}</p>
+          <form action={logout}>
+            <button className="text-[12px] text-[var(--muted)] hover:text-[var(--ink)]">Sign out</button>
+          </form>
+        </div>
       </div>
     </div>
+  );
+}
+
+export function MobileNav({ logout }: { logout: () => Promise<void> }) {
+  const pathname = usePathname();
+  return (
+    <header className="border-b border-[var(--graphite)] bg-[var(--carbon)] md:hidden">
+      <div className="flex items-center justify-between px-4 py-2.5">
+        <span className="flex items-center gap-2 text-[14px] font-[590]"><Mark />Pace</span>
+        <form action={logout}><button className="text-[13px] text-[var(--muted)]">Sign out</button></form>
+      </div>
+      <nav aria-label="Main" className="flex gap-1 overflow-x-auto px-3 pb-2">
+        {[...WORK, ...ADMIN].map((item) => (
+          <Link key={item.href} href={item.href} className="nav-item shrink-0" aria-current={isActive(pathname, item.href) ? "page" : undefined}>
+            {item.icon}{item.label}
+          </Link>
+        ))}
+      </nav>
+    </header>
   );
 }
