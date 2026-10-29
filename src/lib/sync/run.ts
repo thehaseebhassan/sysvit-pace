@@ -1,5 +1,5 @@
 import "server-only";
-import { fetchIssueById, fetchIssuePage, linearGql, type LinearIssue } from "@/lib/linear/client";
+import { fetchIssueById, fetchIssuePage, ISSUE_FIELDS, linearGql, type LinearIssue } from "@/lib/linear/client";
 import { categoryFromStateType, deriveEvents, projectCategory } from "@/lib/linear/map";
 import { adminDb, adoptImported, check, chunk, getWorkspace, setParents, type Admin } from "./db";
 
@@ -131,7 +131,7 @@ export async function upsertIssues(sb: Admin, wsId: string, maps: Maps, issues: 
  * from earlier runs or the CSV import are found by Linear id, then by identifier.
  */
 export async function linkParents(sb: Admin, wsId: string, links: ParentLink[]) {
-  if (!links.length) return { linked: 0, cleared: 0, unresolved: 0 };
+  if (!links.length) return { linked: 0, cleared: 0, unresolved: 0, unresolvedLinks: [] as ParentLink[] };
   const byExternal = new Map<string, string>();
   const byIdent = new Map<string, string>();
   const ext = [...new Set(links.map((l) => l.parentExternalId).filter(Boolean) as string[])];
@@ -151,22 +151,34 @@ export async function linkParents(sb: Admin, wsId: string, links: ParentLink[]) 
     rows.forEach((r) => byIdent.set(r.identifier, r.id));
   }
   const out: { id: string; parent: string | null }[] = [];
-  let unresolved = 0;
+  const unresolvedLinks: ParentLink[] = [];
   for (const l of links) {
     if (!l.parentExternalId && !l.parentIdentifier) { out.push({ id: l.id, parent: null }); continue; }
     const pid = (l.parentExternalId && byExternal.get(l.parentExternalId)) || (l.parentIdentifier && byIdent.get(l.parentIdentifier)) || null;
-    if (pid) out.push({ id: l.id, parent: pid }); else unresolved++; // leave as-is rather than wipe a good link
+    if (pid) out.push({ id: l.id, parent: pid }); else unresolvedLinks.push(l); // leave as-is rather than wipe a good link
   }
   await setParents(sb, out);
-  return { linked: out.filter((o) => o.parent).length, cleared: out.filter((o) => !o.parent).length, unresolved };
+  return { linked: out.filter((o) => o.parent).length, cleared: out.filter((o) => !o.parent).length, unresolved: unresolvedLinks.length, unresolvedLinks };
 }
 
 // ---------- full / incremental run ----------
 export type SyncTrigger = "cron" | "webhook" | "manual";
 
+/** Stop early (and resume next press) well before Vercel's 300 s function limit. */
+const TIME_BUDGET_MS = 240_000;
+
+type Resume = { after: string | null; since: string | null; maxUpdated: string | null };
+
 export async function runSync(trigger: SyncTrigger, opts: { full?: boolean } = {}) {
+  const t0 = Date.now();
   const sb = adminDb();
   const ws = await getWorkspace(sb);
+
+  // A previous run that hit the time limit leaves a resume point; continue from there.
+  const { data: prev } = await sb.from("sync_runs").select("status, counts")
+    .eq("workspace_id", ws.id).neq("trigger", "import").order("started_at", { ascending: false }).limit(1).maybeSingle();
+  const resume = prev?.status === "error" ? ((prev.counts as { resume?: Resume } | null)?.resume ?? null) : null;
+
   const run = check(
     await sb.from("sync_runs").insert({ workspace_id: ws.id, trigger }).select("id").single(),
     "start run",
@@ -176,36 +188,126 @@ export async function runSync(trigger: SyncTrigger, opts: { full?: boolean } = {
     const { data: last } = await sb.from("sync_runs").select("cursor")
       .eq("workspace_id", ws.id).eq("status", "success").not("cursor", "is", null)
       .order("started_at", { ascending: false }).limit(1).maybeSingle();
-    const since = last?.cursor && !opts.full ? new Date(new Date(last.cursor).getTime() - OVERLAP_MS).toISOString() : null;
+    const since = resume
+      ? resume.since
+      : last?.cursor && !opts.full ? new Date(new Date(last.cursor).getTime() - OVERLAP_MS).toISOString() : null;
 
     const maps = await syncReference(sb, ws.id);
     await syncColors(sb, ws.id);
-    let after: string | null = null;
-    let maxUpdated: string | null = last?.cursor ?? null;
-    const counts = { tasks: 0, events: 0, pages: 0, parents: 0, mode: since ? "incremental" : "backfill" };
-    const allLinks: ParentLink[] = [];
+    let after: string | null = resume?.after ?? null;
+    let maxUpdated: string | null = resume ? resume.maxUpdated : (last?.cursor ?? null);
+    const counts: Record<string, unknown> & { tasks: number; events: number; pages: number; parents: number } = {
+      tasks: 0, events: 0, pages: 0, parents: 0, mode: since ? "incremental" : "backfill", resumed: !!resume,
+    };
+    let pending: ParentLink[] = []; // children whose parent hasn't been stored yet
 
     for (;;) {
       const page = await fetchIssuePage({ after, updatedAfter: since });
       const r = await upsertIssues(sb, ws.id, maps, page.nodes);
       counts.tasks += r.tasks; counts.events += r.events; counts.pages++;
-      allLinks.push(...r.links);
       for (const n of page.nodes) if (!maxUpdated || n.updatedAt > maxUpdated) maxUpdated = n.updatedAt;
+
+      // Link as we go so a timeout never leaves the hierarchy empty; leftovers retry at the end.
+      const res = await linkParents(sb, ws.id, [...pending, ...r.links]);
+      counts.parents += res.linked;
+      pending = res.unresolvedLinks;
+
       if (!page.pageInfo.hasNextPage) break;
       after = page.pageInfo.endCursor;
+
+      if (Date.now() - t0 > TIME_BUDGET_MS) {
+        counts.resume = { after, since, maxUpdated } satisfies Resume;
+        const msg = `Stopped at the time limit after ${counts.pages} pages (${counts.tasks} issues). Press Sync again to continue.`;
+        await sb.from("sync_runs").update({ status: "error", error: msg, counts, finished_at: new Date().toISOString() }).eq("id", run.id);
+        return { ok: false as const, runId: run.id, error: msg };
+      }
     }
 
-    counts.parents = (await linkParents(sb, ws.id, allLinks)).linked;
+    if (pending.length) counts.parents += (await linkParents(sb, ws.id, pending)).linked;
 
     check(await sb.from("sync_runs").update({
       status: "success", cursor: maxUpdated, counts, finished_at: new Date().toISOString(),
     }).eq("id", run.id), "finish run");
-    return { ok: true as const, runId: run.id, counts };
+    return { ok: true as const, runId: run.id, counts: counts as { tasks: number; events: number; pages: number; parents: number; mode: string } };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     await sb.from("sync_runs").update({ status: "error", error: message, finished_at: new Date().toISOString() }).eq("id", run.id);
     return { ok: false as const, runId: run.id, error: message };
   }
+}
+
+/**
+ * Rebuild sub-issue links from Linear's structure alone. Light query (id, identifier, parent), so it
+ * finishes in seconds. Parents missing from Pace are fetched first. Safe to run any time.
+ */
+export async function relinkHierarchy() {
+  const sb = adminDb();
+  const ws = await getWorkspace(sb);
+
+  // 1. Linear's parent map
+  type Slim = { id: string; identifier: string; parent: { id: string; identifier: string } | null };
+  const slim: Slim[] = [];
+  let after: string | null = null;
+  for (;;) {
+    const d: { issues: { nodes: Slim[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } } } = await linearGql(
+      `query($after:String){ issues(first:100, after:$after, includeArchived:true){ nodes{ id identifier parent{ id identifier } } pageInfo{ hasNextPage endCursor } } }`,
+      { after },
+    );
+    slim.push(...d.issues.nodes);
+    if (!d.issues.pageInfo.hasNextPage) break;
+    after = d.issues.pageInfo.endCursor;
+  }
+
+  // 2. what Pace has
+  const load = async () => {
+    const byExt = new Map<string, string>();
+    const byIdent = new Map<string, string>();
+    for (let from = 0; ; from += 1000) {
+      const rows = check(
+        await sb.from("tasks").select("id, external_id, identifier, source").eq("workspace_id", ws.id).order("id").range(from, from + 999),
+        "load tasks",
+      ) as { id: string; external_id: string; identifier: string | null; source: string }[];
+      for (const r of rows) {
+        if (r.source === "linear") byExt.set(r.external_id, r.id);
+        if (r.identifier && (!byIdent.has(r.identifier) || r.source === "linear")) byIdent.set(r.identifier, r.id);
+      }
+      if (rows.length < 1000) break;
+    }
+    return { byExt, byIdent };
+  };
+  let { byExt, byIdent } = await load();
+  const find = (id: string, ident: string) => byExt.get(id) ?? byIdent.get(ident);
+
+  // 3. fetch parents Pace has never stored (e.g. archived, or beyond an earlier cut-off)
+  const missing = [...new Map(slim.filter((s) => s.parent && !find(s.parent.id, s.parent.identifier)).map((s) => [s.parent!.id, s.parent!.id])).keys()];
+  let fetched = 0;
+  if (missing.length) {
+    const maps = await syncReference(sb, ws.id);
+    for (const part of chunk(missing, 25)) {
+      const d = await linearGql<{ issues: { nodes: LinearIssue[] } }>(
+        `query($ids:[ID!]){ issues(first:25, includeArchived:true, filter:{ id:{ in:$ids } }){ nodes{ ${ISSUE_FIELDS} } } }`,
+        { ids: part },
+      );
+      await upsertIssues(sb, ws.id, maps, d.issues.nodes);
+      fetched += d.issues.nodes.length;
+    }
+    ({ byExt, byIdent } = await load());
+  }
+
+  // 4. write links
+  const out: { id: string; parent: string | null }[] = [];
+  let notInPace = 0, parentMissing = 0, withParent = 0;
+  for (const s of slim) {
+    const child = find(s.id, s.identifier);
+    if (!child) { notInPace++; continue; }
+    if (!s.parent) { out.push({ id: child, parent: null }); continue; }
+    withParent++;
+    const parent = find(s.parent.id, s.parent.identifier);
+    if (!parent) { parentMissing++; continue; }
+    out.push({ id: child, parent });
+  }
+  await setParents(sb, out);
+  return { issuesInLinear: slim.length, withParent, linked: out.filter((o) => o.parent).length, parentsFetched: fetched, notInPace, parentMissing };
 }
 
 // ---------- webhook helpers ----------

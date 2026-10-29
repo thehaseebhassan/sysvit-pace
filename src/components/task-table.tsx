@@ -100,7 +100,7 @@ function Group({ group, today, showProject, colors }: { group: TaskGroup; today:
     <section>
       {group.label && (
         <button type="button" onClick={() => setGroupClosed((v) => !v)} aria-expanded={!groupClosed}
-          className="group-head" style={{ background: head ? tint(head, 9) : "var(--carbon)" }}>
+          className="group-head" style={{ background: head ? tint(head, 12) : "var(--carbon)" }}>
           <span className="text-[var(--muted)]"><Chevron open={!groupClosed} /></span>
           {group.project && <ProjectIcon name={group.project} colors={colors} />}
           {group.category && <StatusIcon category={group.category} />}

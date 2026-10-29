@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { initials } from "@/lib/format";
-import { labelColor, projectColor, type UiColors } from "@/lib/colors";
+import { labelColor, projectColor, tint, type UiColors } from "@/lib/colors";
 
 export const btn = "btn";
 export const btnPrimary = "btn btn-primary";
@@ -100,7 +100,7 @@ export function PriorityIcon({ priority, size = 14 }: { priority: number | null 
   return (
     <svg width={size} height={size} viewBox="0 0 14 14" role="img" aria-label={label} className="shrink-0">
       {[0, 1, 2].map((i) => (
-        <rect key={i} x={2 + i * 4} y={9 - i * 3} width="2.4" height={3 + i * 3} rx="0.8" fill={i < lit ? "#3b3f45" : "#d3d6db"} />
+        <rect key={i} x={1.8 + i * 4} y={9.5 - i * 3.2} width="2.6" height={3 + i * 3.2} rx="1.2" fill={i < lit ? "#3b3f45" : "#d3d6db"} />
       ))}
     </svg>
   );
@@ -112,25 +112,34 @@ export function LabelTag({ name, colors }: { name: string; colors?: UiColors }) 
   return <span className="pill"><i className="block h-[7px] w-[7px] rounded-full" style={{ background: labelColor(name, colors) }} />{name}</span>;
 }
 
-/** Cube in the project's colour (Linear-style project glyph). */
+/** Soft-cornered cube in the project's colour (Linear-style project glyph). */
 export function ProjectIcon({ name, colors, size = 16 }: { name: string; colors?: UiColors; size?: number }) {
   const c = projectColor(name, colors);
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
-      <path d="m8 1.8 5.5 3.1v6.2L8 14.2l-5.5-3.1V4.9z" />
-      <path d="M2.7 5 8 8l5.3-3M8 8v6" />
+      <path d="M7.2 1.8a1.7 1.7 0 0 1 1.6 0l4.3 2.45a1.7 1.7 0 0 1 .85 1.47v4.56a1.7 1.7 0 0 1-.85 1.47L8.8 14.2a1.7 1.7 0 0 1-1.6 0l-4.3-2.45a1.7 1.7 0 0 1-.85-1.47V5.72a1.7 1.7 0 0 1 .85-1.47z" />
+      <path d="M2.4 4.9 8 8.1l5.6-3.2M8 8.1v6.2" />
     </svg>
   );
 }
 
+/** Project glyph on a lightly tinted rounded tile. */
+export function ProjectTile({ name, colors, size = 28 }: { name: string; colors?: UiColors; size?: number }) {
+  return (
+    <span style={{ width: size, height: size, background: tint(projectColor(name, colors), 12) }} className="inline-flex shrink-0 items-center justify-center rounded-[8px]">
+      <ProjectIcon name={name} colors={colors} size={Math.round(size * 0.58)} />
+    </span>
+  );
+}
+
 /** Small completion ring: replaces long progress bars. */
-export function ProgressRing({ value, size = 18 }: { value: number; size?: number }) {
+export function ProgressRing({ value, size = 18, color }: { value: number; size?: number; color?: string }) {
   const v = Math.min(100, Math.max(0, value));
   const r = size / 2 - 2, c = 2 * Math.PI * r;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${Math.round(v)}% done`} className="shrink-0 -rotate-90">
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e6e8eb" strokeWidth="2" />
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={v >= 100 ? "#27a644" : "#08090a"} strokeWidth="2" strokeLinecap="round" strokeDasharray={`${(c * v) / 100} ${c}`} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={v >= 100 ? "#27a644" : (color ?? "#08090a")} strokeWidth="2" strokeLinecap="round" strokeDasharray={`${(c * v) / 100} ${c}`} />
     </svg>
   );
 }
