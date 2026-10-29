@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { EmptyState, PageHeader, ProgressBar } from "@/components/ui";
+import { Body, EmptyState, PageHeader } from "@/components/ui";
+import { uiColors } from "@/lib/colors";
 import { TaskTable } from "@/components/task-table";
 import { requireCtx } from "@/lib/auth";
 import { dateInTz } from "@/lib/weeks";
@@ -16,15 +17,19 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
     supabase.from("people").select("id, display_name"),
   ]);
   if (!p.data) notFound();
-  if (tasks.error) return <p className="card p-4 text-[13px] text-[#c23a3a]">{tasks.error.message}</p>;
+  if (tasks.error) return <Body><p className="card p-4 text-[13px] text-[#c23a3a]">{tasks.error.message}</p></Body>;
   const rows = hydrateTasks(tasks.data as Parameters<typeof hydrateTasks>[0], projects.data, people.data);
   const today = dateInTz(new Date(), workspace.timezone);
 
+  const colors = uiColors(workspace.settings);
+
   return (
-    <div>
-      <PageHeader back={{ href: "/projects", label: "Projects" }} title={p.data.project_name} subtitle={`${p.data.done_tasks} of ${p.data.total_tasks} done`} />
-      <div className="mb-5 max-w-md"><ProgressBar value={p.data.percent_done} /></div>
-      {rows.length ? <TaskTable tasks={rows} today={today} showProject={false} /> : <EmptyState title="No issues in this project" />}
-    </div>
+    <>
+      <PageHeader back={{ href: "/projects", label: "Projects" }} title={p.data.project_name}
+        subtitle={`${p.data.done_tasks} of ${p.data.total_tasks} done · ${Math.round(p.data.percent_done)}%`} />
+      <Body>
+        {rows.length ? <TaskTable tasks={rows} today={today} showProject={false} colors={colors} /> : <EmptyState title="No issues in this project" />}
+      </Body>
+    </>
   );
 }

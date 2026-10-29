@@ -1,7 +1,7 @@
 import { ActionForm } from "@/components/action-form";
 import { SubmitButton } from "@/components/submit-button";
 import { SyncNow } from "@/components/sync-now";
-import { Badge, Card, EmptyState, PageHeader, SectionTitle } from "@/components/ui";
+import { Badge, Body, Card, EmptyState, PageHeader, SectionTitle } from "@/components/ui";
 import { requireCtx } from "@/lib/auth";
 import { timeAgo } from "@/lib/format";
 import { archiveSettings, findCandidates } from "@/lib/sync/archive";
@@ -24,8 +24,10 @@ export default async function SyncPage() {
   const lastOk = runs.data?.find((r) => r.status === "success" && r.trigger !== "import");
 
   return (
-    <div className="max-w-[860px] space-y-10">
-      <PageHeader title="Sync" subtitle={`Linear → Pace. Last successful sync ${timeAgo(lastOk?.finished_at)}.`} actions={isAdmin ? <SyncNow /> : undefined} />
+    <>
+      <PageHeader title="Sync" subtitle={`Linear → Pace · last sync ${timeAgo(lastOk?.finished_at)}`} />
+      <Body narrow className="space-y-10 !max-w-[860px]">
+        {isAdmin && <div className="flex justify-end"><SyncNow /></div>}
 
       <section>
         <SectionTitle>Archive in Linear</SectionTitle>
@@ -101,6 +103,7 @@ export default async function SyncPage() {
           </div>
         ) : <EmptyState title="No runs yet" hint={isAdmin ? "Press “Sync now”, or wait for the daily job." : "An admin can start the first sync."} />}
       </section>
-    </div>
+      </Body>
+    </>
   );
 }

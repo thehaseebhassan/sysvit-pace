@@ -1,6 +1,6 @@
 import { ActionForm } from "@/components/action-form";
 import { SubmitButton } from "@/components/submit-button";
-import { Badge, Card, PageHeader, SectionTitle } from "@/components/ui";
+import { Badge, Body, Card, PageHeader, SectionTitle } from "@/components/ui";
 import { requireCtx } from "@/lib/auth";
 import { archiveSettings } from "@/lib/sync/archive";
 import { saveArchiveSettings } from "../actions";
@@ -12,8 +12,9 @@ export default async function Settings() {
   const { data: members } = await supabase.from("members").select("id, display_name, role, created_at").order("created_at");
 
   return (
-    <div className="max-w-[720px] space-y-10">
+    <>
       <PageHeader title="Settings" subtitle={`${workspace.name} · ${workspace.timezone}`} />
+      <Body narrow className="space-y-10 !max-w-[760px]">
 
       <section>
         <SectionTitle>Archiving in Linear</SectionTitle>
@@ -51,6 +52,7 @@ export default async function Settings() {
         </div>
         <p className="mt-2 text-[13px] text-[var(--muted)]">Add members in the Supabase dashboard (Authentication → Users, then a row in <code className="mono text-[12px]">members</code>).</p>
       </section>
-    </div>
+      </Body>
+    </>
   );
 }

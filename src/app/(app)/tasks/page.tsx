@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { FilterBar } from "@/components/filter-bar";
 import { TaskList, type TaskGroup } from "@/components/task-table";
-import { EmptyState, PageHeader, STATUS_LABEL } from "@/components/ui";
+import { Body, EmptyState, PageHeader, STATUS_LABEL } from "@/components/ui";
+import { uiColors } from "@/lib/colors";
 import { requireCtx } from "@/lib/auth";
 import { OPEN } from "@/lib/format";
 import { dateInTz } from "@/lib/weeks";
@@ -19,10 +20,23 @@ function group(rows: TaskRow[], by: string): TaskGroup[] {
       .map((c) => ({ key: c, label: STATUS_LABEL[c], category: c, tasks: rows.filter((t) => t.status_category === c) }))
       .filter((g) => g.tasks.length);
   }
+  // Project groups: a sub-issue stays with its parent (we group by the top-most ancestor's project),
+  // so a family never gets split across headers.
+  const byId = new Map(rows.map((t) => [t.id, t]));
+  const rootOf = (t: TaskRow): TaskRow => {
+    const seen = new Set<string>();
+    let cur = t;
+    while (cur.parent_task_id && byId.has(cur.parent_task_id) && !seen.has(cur.id)) {
+      seen.add(cur.id);
+      cur = byId.get(cur.parent_task_id)!;
+    }
+    return cur;
+  };
   const m = new Map<string, TaskGroup>();
   for (const t of rows) {
-    const key = t.project?.id ?? "none";
-    if (!m.has(key)) m.set(key, { key, label: t.project?.name ?? "No project", tasks: [] });
+    const proj = rootOf(t).project ?? t.project;
+    const key = proj?.id ?? "none";
+    if (!m.has(key)) m.set(key, { key, label: proj?.name ?? "No project", project: proj?.name, tasks: [] });
     m.get(key)!.tasks.push(t);
   }
   return [...m.values()].sort((a, b) => (a.key === "none" ? 1 : b.key === "none" ? -1 : a.label.localeCompare(b.label)));
@@ -59,29 +73,41 @@ export default async function Tasks({ searchParams }: { searchParams: Promise<Re
 
   if (tasks.error) {
     return (
-      <div>
+      <>
         <PageHeader title="Issues" />
-        <p className="card p-4 text-[13px] text-[#c23a3a]">{tasks.error.message}</p>
-      </div>
+        <Body><p className="card p-4 text-[13px] text-[#c23a3a]">{tasks.error.message}</p></Body>
+      </>
     );
   }
 
   const labels = [...new Set((labelRows.data ?? []).flatMap((r) => (Array.isArray(r.labels) ? (r.labels as string[]) : [])))].sort((a, b) => a.localeCompare(b));
-  const rows = hydrateTasks(tasks.data as Parameters<typeof hydrateTasks>[0], projects.data, people.data);
+  const matched = hydrateTasks(tasks.data as Parameters<typeof hydrateTasks>[0], projects.data, people.data);
+
+  // Keep hierarchy visible under filters: pull in missing ancestors (greyed out as context).
+  const have = new Set(matched.map((t) => t.id));
+  let rows = matched;
+  for (let pass = 0; pass < 3; pass++) {
+    const missing = [...new Set(rows.map((t) => t.parent_task_id).filter((id): id is string => !!id && !have.has(id)))];
+    if (!missing.length) break;
+    const { data } = await supabase.from("tasks").select(TASK_COLUMNS).in("id", missing.slice(0, 200));
+    const extra = hydrateTasks(data as Parameters<typeof hydrateTasks>[0], projects.data, people.data).map((t) => ({ ...t, context: true }));
+    if (!extra.length) break;
+    extra.forEach((t) => have.add(t.id));
+    rows = [...rows, ...extra];
+  }
   const parents = rows.filter((t) => rows.some((c) => c.parent_task_id === t.id)).length;
 
   return (
-    <div>
-      <PageHeader
-        title="Issues"
-        subtitle={`${rows.length}${rows.length === LIMIT ? "+" : ""} in view · ${parents} with sub-issues`}
-      />
-      <Suspense>
-        <FilterBar projects={projects.data ?? []} people={people.data ?? []} labels={labels} />
-      </Suspense>
-      {rows.length
-        ? <TaskList groups={group(rows, sp.group)} today={today} />
-        : <EmptyState title="No issues match" hint="Clear a filter, import the CSV, or run Sync." />}
-    </div>
+    <>
+      <PageHeader title="Issues" subtitle={`${matched.length}${matched.length === LIMIT ? "+" : ""} issues · ${parents} with sub-issues`} />
+      <Body>
+        <Suspense>
+          <FilterBar projects={projects.data ?? []} people={people.data ?? []} labels={labels} />
+        </Suspense>
+        {matched.length
+          ? <TaskList groups={group(rows, sp.group)} today={today} colors={uiColors(workspace.settings)} />
+          : <EmptyState title="No issues match" hint="Clear a filter, import the CSV, or run Sync." />}
+      </Body>
+    </>
   );
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Badge, Card, EmptyState, PageHeader, ProgressBar, SectionTitle, StatusIcon } from "@/components/ui";
+import { Badge, Body, Card, EmptyState, PageHeader, ProgressRing, ProjectIcon, SectionTitle, StatusIcon } from "@/components/ui";
+import { uiColors } from "@/lib/colors";
 import { requireCtx } from "@/lib/auth";
 import { dateInTz, weekStart } from "@/lib/weeks";
 import { fmtDate, timeAgo } from "@/lib/format";
@@ -31,9 +32,12 @@ export default async function Overview() {
     { label: "Unassigned", value: unassigned, href: "/tasks?status=open&assignee=none" },
   ];
 
+  const colors = uiColors(workspace.settings);
+
   return (
-    <div>
+    <>
       <PageHeader title="Overview" subtitle={`Week of ${fmtDate(thisWeek)} · last sync ${timeAgo(lastRun.data?.finished_at)}`} />
+      <Body narrow>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((s) => (
@@ -50,12 +54,12 @@ export default async function Overview() {
           {progress.data?.length ? (
             <div className="card divide-hair overflow-hidden">
               {progress.data.map((p) => (
-                <Link key={p.project_id} href={`/projects/${p.project_id}`} className="block px-4 py-3 hover:bg-[var(--carbon)]">
-                  <div className="mb-2 flex items-center justify-between gap-3 text-[13px]">
-                    <span className="truncate font-[510]">{p.project_name}</span>
-                    <span className="text-[var(--muted)] tnum">{p.done_tasks}/{p.total_tasks}</span>
-                  </div>
-                  <ProgressBar value={p.percent_done} />
+                <Link key={p.project_id} href={`/projects/${p.project_id}`} className="flex items-center gap-3 px-4 py-3 text-[13px] hover:bg-[var(--carbon)]">
+                  <ProjectIcon name={p.project_name} colors={colors} />
+                  <span className="min-w-0 flex-1 truncate font-[510]">{p.project_name}</span>
+                  <span className="text-[var(--muted)] tnum">{p.done_tasks}/{p.total_tasks}</span>
+                  <ProgressRing value={p.percent_done} />
+                  <span className="w-9 text-right text-[var(--muted)] tnum">{Math.round(p.percent_done)}%</span>
                 </Link>
               ))}
             </div>
@@ -84,6 +88,7 @@ export default async function Overview() {
         </section>
       </div>
       <p className="mt-8 text-[12px] text-[var(--faint)]">{fmtDate(today)} · {tz}</p>
-    </div>
+      </Body>
+    </>
   );
 }

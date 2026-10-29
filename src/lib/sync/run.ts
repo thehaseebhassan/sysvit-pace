@@ -9,6 +9,20 @@ type Maps = { teams: IdMap; people: IdMap; projects: IdMap };
 const OVERLAP_MS = 10 * 60 * 1000; // re-read the last 10 minutes to be safe against late writes
 
 // ---------- reference data: teams, users, projects ----------
+/** Label + project colours for the UI, kept in workspace settings (no extra tables). Never fails a sync. */
+async function syncColors(sb: Admin, wsId: string) {
+  try {
+    const c = await linearGql<{ issueLabels: { nodes: { name: string; color: string }[] }; projects: { nodes: { name: string; color: string | null }[] } }>(
+      `query{ issueLabels(first:250){ nodes{ name color } } projects(first:100, includeArchived:true){ nodes{ name color } } }`,
+    );
+    const labels = Object.fromEntries(c.issueLabels.nodes.filter((l) => l.color).map((l) => [l.name, l.color]));
+    const projects = Object.fromEntries(c.projects.nodes.filter((p) => p.color).map((p) => [p.name, p.color as string]));
+    const { data } = await sb.from("workspaces").select("settings").eq("id", wsId).single();
+    const settings = { ...((data?.settings as Record<string, unknown>) ?? {}), label_colors: labels, project_colors: projects };
+    await sb.from("workspaces").update({ settings }).eq("id", wsId);
+  } catch { /* cosmetic only: never fail a sync over colours */ }
+}
+
 export async function syncReference(sb: Admin, wsId: string): Promise<Maps> {
   const data = await linearGql<{
     teams: { nodes: { id: string; key: string; name: string }[] };
@@ -165,6 +179,7 @@ export async function runSync(trigger: SyncTrigger, opts: { full?: boolean } = {
     const since = last?.cursor && !opts.full ? new Date(new Date(last.cursor).getTime() - OVERLAP_MS).toISOString() : null;
 
     const maps = await syncReference(sb, ws.id);
+    await syncColors(sb, ws.id);
     let after: string | null = null;
     let maxUpdated: string | null = last?.cursor ?? null;
     const counts = { tasks: 0, events: 0, pages: 0, parents: 0, mode: since ? "incremental" : "backfill" };

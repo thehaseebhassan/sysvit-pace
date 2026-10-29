@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge, Avatar, LabelTag, PageHeader, PriorityIcon, PRIORITY_LABEL, ProgressBar, SectionTitle, StatusIcon, STATUS_LABEL } from "@/components/ui";
+import { Avatar, Badge, Body, LabelTag, PageHeader, PriorityIcon, PRIORITY_LABEL, ProgressRing, ProjectIcon, SectionTitle, StatusIcon, STATUS_LABEL } from "@/components/ui";
+import { uiColors } from "@/lib/colors";
 import { requireCtx } from "@/lib/auth";
 import { fmtDate, OPEN } from "@/lib/format";
 import { dateInTz } from "@/lib/weeks";
@@ -33,7 +34,7 @@ export default async function TaskDetail({ params }: { params: Promise<{ id: str
   const { data: t, error } = await supabase.from("tasks").select(
     "id, identifier, title, description, status_name, status_category, priority, labels, due_date, completed_at, canceled_at, source_created_at, external_url, source, parent_task_id, project_id, assignee_id, team_id, archived_in_source_at",
   ).eq("id", id).maybeSingle();
-  if (error) return <p className="card p-4 text-[13px] text-[#c23a3a]">{error.message}</p>;
+  if (error) return <Body><p className="card p-4 text-[13px] text-[#c23a3a]">{error.message}</p></Body>;
   if (!t) notFound();
 
   const [parent, kids, project, assignee, team, events] = await Promise.all([
@@ -48,29 +49,28 @@ export default async function TaskDetail({ params }: { params: Promise<{ id: str
   const children = (kids.data ?? []).sort((a, b) => String(a.identifier).localeCompare(String(b.identifier), undefined, { numeric: true }));
   const done = children.filter((c) => c.status_category === "done").length;
   const labels = Array.isArray(t.labels) ? (t.labels as string[]) : [];
+  const colors = uiColors(workspace.settings);
   const today = dateInTz(new Date(), tz);
   const overdue = !!t.due_date && t.due_date < today && (OPEN as readonly string[]).includes(t.status_category);
 
   return (
-    <div>
+    <>
       <PageHeader
         back={{ href: "/tasks", label: "Issues" }}
-        title={t.title}
-        subtitle={undefined}
+        title={t.identifier ?? "Issue"}
         actions={t.external_url ? <a href={t.external_url} target="_blank" rel="noreferrer" className="btn">Open in Linear ↗</a> : undefined}
       />
-
-      <div className="-mt-3 mb-6 flex flex-wrap items-center gap-2 text-[13px] text-[var(--muted)]">
-        <span className="mono text-[12px]">{t.identifier}</span>
-        {parent.data && (<>
-          <span>·</span>
-          <span>Sub-issue of</span>
-          <Link href={`/tasks/${parent.data.id}`} className="inline-flex max-w-[360px] items-center gap-1 text-[var(--ink)] hover:underline">
+      <Body>
+      {parent.data && (
+        <p className="mb-2 flex items-center gap-1.5 text-[13px] text-[var(--muted)]">
+          Sub-issue of
+          <Link href={`/tasks/${parent.data.id}`} className="inline-flex max-w-[420px] items-center gap-1.5 text-[var(--ink)] hover:underline">
             <span className="mono text-[12px] text-[var(--muted)]">{parent.data.identifier}</span>
             <span className="truncate">{parent.data.title}</span>
           </Link>
-        </>)}
-      </div>
+        </p>
+      )}
+      <h1 className="mb-8 max-w-[860px] text-[24px] font-normal leading-[1.25] tracking-[-0.012em]">{t.title}</h1>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-8">
@@ -83,9 +83,8 @@ export default async function TaskDetail({ params }: { params: Promise<{ id: str
 
           {children.length > 0 && (
             <section>
-              <SectionTitle aside={<span className="text-[12px] text-[var(--muted)] tnum">{done}/{children.length} done</span>}>Sub-issues</SectionTitle>
-              <div className="mb-3 max-w-xs"><ProgressBar value={(done / children.length) * 100} /></div>
-              <ul className="card divide-hair overflow-hidden">
+              <SectionTitle aside={<span className="inline-flex items-center gap-1.5 text-[12px] text-[var(--muted)] tnum"><ProgressRing value={(done / children.length) * 100} size={16} />{done}/{children.length} done</span>}>Sub-issues</SectionTitle>
+              <ul className="card divide-hair overflow-hidden py-0.5">
                 {children.map((c) => (
                   <li key={c.id}>
                     <Link href={`/tasks/${c.id}`} className="row">
@@ -125,9 +124,9 @@ export default async function TaskDetail({ params }: { params: Promise<{ id: str
               <Prop label="Status"><StatusIcon category={t.status_category} /><span>{t.status_name ?? STATUS_LABEL[t.status_category]}</span></Prop>
               <Prop label="Priority"><PriorityIcon priority={t.priority} /><span>{PRIORITY_LABEL[t.priority ?? 0]}</span></Prop>
               <Prop label="Assignee"><Avatar name={assignee.data?.display_name} /><span>{assignee.data?.display_name ?? <span className="text-[var(--faint)]">Unassigned</span>}</span></Prop>
-              <Prop label="Project">{project.data ? <Link href={`/projects/${project.data.id}`} className="hover:underline">{project.data.name}</Link> : <span className="text-[var(--faint)]">None</span>}</Prop>
+              <Prop label="Project">{project.data ? <Link href={`/projects/${project.data.id}`} className="inline-flex items-center gap-1.5 hover:underline"><ProjectIcon name={project.data.name} colors={colors} size={14} />{project.data.name}</Link> : <span className="text-[var(--faint)]">None</span>}</Prop>
               <Prop label="Team">{team.data ? <span>{team.data.name}{team.data.key ? <span className="mono ml-1 text-[12px] text-[var(--muted)]">{team.data.key}</span> : null}</span> : <span className="text-[var(--faint)]">None</span>}</Prop>
-              <Prop label="Labels">{labels.length ? labels.map((l) => <LabelTag key={l} name={l} />) : <span className="text-[var(--faint)]">None</span>}</Prop>
+              <Prop label="Labels">{labels.length ? labels.map((l) => <LabelTag key={l} name={l} colors={colors} />) : <span className="text-[var(--faint)]">None</span>}</Prop>
               <Prop label="Due"><span className={overdue ? "text-[#c23a3a]" : ""}>{fmtDate(t.due_date)}</span>{overdue && <Badge tone="red">overdue</Badge>}</Prop>
               <Prop label="Created"><span>{fmtDate(t.source_created_at)}</span></Prop>
               {t.completed_at && <Prop label="Completed"><span>{fmtDate(t.completed_at)}</span></Prop>}
@@ -138,6 +137,7 @@ export default async function TaskDetail({ params }: { params: Promise<{ id: str
           <p className="mt-3 px-1 text-[12px] text-[var(--faint)]">Source: {t.source === "import" ? "CSV history" : "Linear"} · read-only in Pace</p>
         </aside>
       </div>
-    </div>
+      </Body>
+    </>
   );
 }

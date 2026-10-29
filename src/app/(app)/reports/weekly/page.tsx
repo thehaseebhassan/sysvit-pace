@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Card, EmptyState, LabelTag, PageHeader, StatusIcon } from "@/components/ui";
+import { Body, Card, EmptyState, LabelTag, PageHeader, StatusIcon } from "@/components/ui";
+import { uiColors } from "@/lib/colors";
 import { requireCtx } from "@/lib/auth";
 import { addDays, formatWeekRange, weekStart } from "@/lib/weeks";
 import { hydrateTasks, TASK_COLUMNS } from "@/lib/tasks/hydrate";
@@ -34,9 +35,12 @@ export default async function Weekly() {
   const max = Math.max(1, ...weeks.map((w) => totals.get(w) ?? 0));
   const any = weeks.some((w) => totals.get(w));
 
+  const colors = uiColors(workspace.settings);
+
   return (
-    <div>
+    <>
       <PageHeader title="Weekly" subtitle={`Completed per week · Monday–Sunday, ${tz}`} />
+      <Body narrow>
       {!any ? <EmptyState title="Nothing completed in the last 12 weeks" hint="Import history or run a sync." /> : (
         <>
           <Card className="mb-6 !p-5">
@@ -47,7 +51,7 @@ export default async function Weekly() {
                 return (
                   <div key={w} className="group flex h-full flex-1 flex-col items-center justify-end gap-1.5" title={`${formatWeekRange(w)}: ${n} done`}>
                     <span className="text-[11px] text-[var(--muted)] tnum">{n || ""}</span>
-                    <div className={`w-full rounded-[3px] ${now ? "bg-[var(--ink)]" : "bg-[var(--smoke)] group-hover:bg-[var(--muted)]"}`} style={{ height: `${Math.max(2, (n / max) * 100)}%` }} />
+                    <div className={`w-full rounded-[3px] ${now ? "bg-[#6366f1]" : "bg-[#d6d8f7] group-hover:bg-[#a5a7f3]"}`} style={{ height: `${Math.max(2, (n / max) * 100)}%` }} />
                   </div>
                 );
               })}
@@ -73,7 +77,7 @@ export default async function Weekly() {
                         <StatusIcon category="done" />
                         <span className="mono w-[60px] shrink-0 text-[12px] text-[var(--muted)]">{t.identifier}</span>
                         <Link href={`/tasks/${t.id}`} className="min-w-0 flex-1 truncate hover:underline">{t.title}</Link>
-                        <span className="hidden shrink-0 md:flex">{t.labels[0] && <LabelTag name={t.labels[0]} />}</span>
+                        <span className="hidden shrink-0 md:flex">{t.labels[0] && <LabelTag name={t.labels[0]} colors={colors} />}</span>
                         <span className="hidden w-[140px] shrink-0 truncate text-[12px] text-[var(--muted)] lg:block">{t.project?.name}</span>
                         <span className="w-[110px] shrink-0 truncate text-right text-[12px] text-[var(--muted)]">{t.assignee?.display_name ?? "—"}</span>
                       </li>
@@ -85,6 +89,7 @@ export default async function Weekly() {
           </div>
         </>
       )}
-    </div>
+      </Body>
+    </>
   );
 }
