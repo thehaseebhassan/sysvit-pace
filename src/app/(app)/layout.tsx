@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { MobileNav, Sidebar } from "@/components/sidebar";
 import { getContext } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
+import { uiColors } from "@/lib/colors";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, ctx } = await getContext();
@@ -17,15 +18,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     );
   }
 
+  const { data: projects } = await ctx.supabase.from("projects").select("id, name").order("name").limit(40);
+
   return (
-    <div className="flex min-h-full flex-1 flex-col md:flex-row">
-      <aside className="sticky top-0 hidden h-screen w-[232px] shrink-0 border-r border-[var(--graphite)] bg-[var(--carbon)] md:block">
-        <Sidebar workspace={ctx.workspace.name} email={user.email} logout={logout} />
+    <div className="flex min-h-screen flex-col bg-[var(--shell)] md:h-screen md:flex-row md:overflow-hidden">
+      <aside className="hidden w-[236px] shrink-0 md:block">
+        <Sidebar workspace={ctx.workspace.name} email={user.email} logout={logout} projects={projects ?? []} colors={uiColors(ctx.workspace.settings)} />
       </aside>
       <MobileNav logout={logout} />
-      <main className="min-w-0 flex-1 px-4 py-6 md:px-10 md:py-8">
-        <div className="mx-auto w-full max-w-[1200px]">{children}</div>
-      </main>
+      <main className="panel m-0 min-w-0 flex-1 bg-[var(--canvas)] md:m-2 md:ml-0 md:overflow-auto">{children}</main>
     </div>
   );
 }

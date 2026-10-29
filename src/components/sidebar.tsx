@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { icons } from "./icons";
-import { Avatar } from "./ui";
+import { Avatar, ProjectIcon } from "./ui";
+import type { UiColors } from "@/lib/colors";
 
 const WORK = [
   { href: "/", label: "Overview", icon: icons.overview },
@@ -25,7 +26,9 @@ function Mark() {
   );
 }
 
-export function Sidebar({ workspace, email, logout }: { workspace: string; email?: string; logout: () => Promise<void> }) {
+export function Sidebar({ workspace, email, logout, projects, colors }: {
+  workspace: string; email?: string; logout: () => Promise<void>; projects: { id: string; name: string }[]; colors: UiColors;
+}) {
   const pathname = usePathname();
   const link = (item: (typeof WORK)[number]) => (
     <Link key={item.href} href={item.href} className="nav-item" aria-current={isActive(pathname, item.href) ? "page" : undefined}>
@@ -47,7 +50,23 @@ export function Sidebar({ workspace, email, logout }: { workspace: string; email
         <p className="nav-label">Admin</p>
         {ADMIN.map(link)}
       </nav>
-      <div className="mt-auto flex items-center gap-2 border-t border-[var(--graphite)] px-2 pt-3">
+      {projects.length > 0 && (
+        <nav aria-label="Projects" className="mt-1 min-h-0 flex-1 overflow-y-auto">
+          <p className="nav-label">Projects</p>
+          <div className="flex flex-col gap-0.5">
+            {projects.map((p) => {
+              const href = `/projects/${p.id}`;
+              return (
+                <Link key={p.id} href={href} className="nav-item" aria-current={pathname === href ? "page" : undefined}>
+                  <ProjectIcon name={p.name} colors={colors} />
+                  <span className="truncate">{p.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      )}
+      <div className="mt-2 flex items-center gap-2 border-t border-[var(--graphite)] px-2 pt-3">
         <Avatar name={email ?? "?"} size={24} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[12px] text-[var(--text-2)]">{email}</p>
@@ -63,7 +82,7 @@ export function Sidebar({ workspace, email, logout }: { workspace: string; email
 export function MobileNav({ logout }: { logout: () => Promise<void> }) {
   const pathname = usePathname();
   return (
-    <header className="border-b border-[var(--graphite)] bg-[var(--carbon)] md:hidden">
+    <header className="border-b border-[var(--graphite)] bg-[var(--shell)] md:hidden">
       <div className="flex items-center justify-between px-4 py-2.5">
         <span className="flex items-center gap-2 text-[14px] font-[590]"><Mark />Pace</span>
         <form action={logout}><button className="text-[13px] text-[var(--muted)]">Sign out</button></form>

@@ -1,5 +1,5 @@
 export const TASK_COLUMNS =
-  "id, identifier, title, status_name, status_category, due_date, completed_at, external_url, parent_task_id, priority, labels, project_id, assignee_id";
+  "id, identifier, title, status_name, status_category, due_date, completed_at, external_url, parent_task_id, priority, labels, project_id, assignee_id, source_created_at";
 
 export type TaskRow = {
   id: string;
@@ -13,11 +13,14 @@ export type TaskRow = {
   parent_task_id: string | null;
   priority: number | null;
   labels: string[];
+  source_created_at: string | null;
+  /** shown only so a sub-issue keeps its parent when filters would hide the parent */
+  context?: boolean;
   project: { id: string; name: string } | null;
   assignee: { id: string; display_name: string } | null;
 };
 
-type Raw = Omit<TaskRow, "project" | "assignee" | "labels" | "priority"> & {
+type Raw = Omit<TaskRow, "project" | "assignee" | "labels" | "priority" | "context"> & {
   project_id: string | null;
   assignee_id: string | null;
   labels: string[] | null;
