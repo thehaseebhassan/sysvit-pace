@@ -1,30 +1,37 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { syncNow } from "@/app/(app)/actions";
+import { rebuildHierarchy, syncNow } from "@/app/(app)/actions";
+
+type Mode = "quick" | "full" | "tree";
+
+const Spin = () => <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />;
 
 export function SyncNow() {
   const [pending, start] = useTransition();
-  const [mode, setMode] = useState<"quick" | "full">("quick");
+  const [mode, setMode] = useState<Mode>("quick");
   const [result, setResult] = useState<{ ok?: boolean; message?: string } | null>(null);
-  const run = (full: boolean) => {
-    setMode(full ? "full" : "quick");
-    start(async () => setResult(await syncNow(full)));
+  const run = (m: Mode) => {
+    setMode(m);
+    setResult(null);
+    start(async () => setResult(m === "tree" ? await rebuildHierarchy() : await syncNow(m === "full")));
   };
+  const busy = (m: Mode) => pending && mode === m;
   return (
     <div className="flex flex-col items-end gap-2">
-      <div className="flex gap-2">
-        <button className="btn" disabled={pending} onClick={() => run(true)} title="Re-reads every issue from Linear (slower). Use after fixes or if hierarchy looks wrong.">
-          {pending && mode === "full" && <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />}
-          {pending && mode === "full" ? "Resyncing…" : "Full resync"}
+      <div className="flex flex-wrap justify-end gap-2">
+        <button className="btn" disabled={pending} onClick={() => run("tree")} title="Re-reads only parent/sub-issue links from Linear (fast) and fixes the tree.">
+          {busy("tree") && <Spin />}{busy("tree") ? "Rebuilding…" : "Rebuild hierarchy"}
         </button>
-        <button className="btn btn-primary" disabled={pending} onClick={() => run(false)}>
-          {pending && mode === "quick" && <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />}
-          {pending && mode === "quick" ? "Syncing…" : "Sync now"}
+        <button className="btn" disabled={pending} onClick={() => run("full")} title="Re-reads every issue from Linear (slower).">
+          {busy("full") && <Spin />}{busy("full") ? "Resyncing…" : "Full resync"}
+        </button>
+        <button className="btn btn-primary" disabled={pending} onClick={() => run("quick")}>
+          {busy("quick") && <Spin />}{busy("quick") ? "Syncing…" : "Sync now"}
         </button>
       </div>
       {result?.message && (
-        <p className={`max-w-sm text-right text-[12px] ${result.ok ? "text-[#1d7a33]" : "text-[#c23a3a]"}`}>{result.message}</p>
+        <p className={`max-w-lg text-right text-[12px] ${result.ok ? "text-[#1d7a33]" : "text-[#c23a3a]"}`}>{result.message}</p>
       )}
     </div>
   );

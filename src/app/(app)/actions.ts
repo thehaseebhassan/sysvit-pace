@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
-import { runSync } from "@/lib/sync/run";
+import { relinkHierarchy, runSync } from "@/lib/sync/run";
 import { executeApprovedBatch, runArchiveStep } from "@/lib/sync/archive";
 import { importClosedIssuesCsv } from "@/lib/sync/import";
 
@@ -18,6 +18,20 @@ export async function syncNow(full = false): Promise<ActionState> {
     const a = await runArchiveStep().catch((e) => ({ error: msg(e) }));
     refresh();
     return { ok: true, message: `Synced ${r.counts.tasks} issues, ${r.counts.parents} sub-issue links (${r.counts.mode}). Archive: ${JSON.stringify(a)}` };
+  } catch (e) { return { ok: false, message: msg(e) }; }
+}
+
+export async function rebuildHierarchy(): Promise<ActionState> {
+  try {
+    await requireAdmin();
+    const r = await relinkHierarchy();
+    refresh();
+    const extra = [
+      r.parentsFetched ? `${r.parentsFetched} missing parents fetched` : "",
+      r.notInPace ? `${r.notInPace} Linear issues not in Pace yet (run Sync)` : "",
+      r.parentMissing ? `${r.parentMissing} parents still missing` : "",
+    ].filter(Boolean).join(", ");
+    return { ok: true, message: `Linear has ${r.withParent} sub-issues; ${r.linked} linked in Pace.${extra ? " " + extra + "." : ""}` };
   } catch (e) { return { ok: false, message: msg(e) }; }
 }
 
