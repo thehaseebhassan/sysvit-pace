@@ -51,14 +51,15 @@ export default async function Tasks({ searchParams }: { searchParams: Promise<Re
   const { supabase, workspace } = await requireCtx();
   const today = dateInTz(new Date(), workspace.timezone);
 
-  let q = supabase.from("tasks").select(TASK_COLUMNS).order("identifier").limit(LIMIT);
-  if (sp.status === "open") q = q.in("status_category", [...OPEN]);
+  // Trashed issues never show. Archived ones are hidden from open/overdue views, like Linear does.
+  let q = supabase.from("tasks").select(TASK_COLUMNS).is("deleted_in_source_at", null).order("identifier").limit(LIMIT);
+  if (sp.status === "open") q = q.in("status_category", [...OPEN]).is("archived_in_source_at", null);
   else if (sp.status) q = q.eq("status_category", sp.status);
   if (sp.project && UUID.test(sp.project)) q = q.eq("project_id", sp.project);
   if (sp.assignee === "none") q = q.is("assignee_id", null);
   else if (sp.assignee && UUID.test(sp.assignee)) q = q.eq("assignee_id", sp.assignee);
   if (sp.label) q = q.contains("labels", [sp.label]);
-  if (sp.flag === "overdue") q = q.lt("due_date", today).in("status_category", [...OPEN]);
+  if (sp.flag === "overdue") q = q.lt("due_date", today).in("status_category", [...OPEN]).is("archived_in_source_at", null);
   if (sp.q) {
     const term = sp.q.replace(/[%,()*\\]/g, " ").trim();
     if (term) q = q.or(`title.ilike.%${term}%,identifier.ilike.%${term}%`);
