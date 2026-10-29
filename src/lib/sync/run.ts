@@ -310,6 +310,69 @@ export async function relinkHierarchy() {
   return { issuesInLinear: slim.length, withParent, linked: out.filter((o) => o.parent).length, parentsFetched: fetched, notInPace, parentMissing };
 }
 
+/**
+ * Heal stale "open" issues. Compares the set of issues Linear says are open with what Pace thinks is
+ * open, then re-reads every difference (done/cancelled/archived/deleted/reopened/never synced).
+ * Cheap: one id-only query plus a fetch of just the differences.
+ */
+export async function reconcileOpen() {
+  const sb = adminDb();
+  const ws = await getWorkspace(sb);
+
+  const linearOpen = new Set<string>();
+  let after: string | null = null;
+  for (;;) {
+    const d: { issues: { nodes: { id: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } } } = await linearGql(
+      `query($after:String){ issues(first:100, after:$after, filter:{ state:{ type:{ nin:["completed","canceled"] } } }){ nodes{ id } pageInfo{ hasNextPage endCursor } } }`,
+      { after },
+    );
+    d.issues.nodes.forEach((n) => linearOpen.add(n.id));
+    if (!d.issues.pageInfo.hasNextPage) break;
+    after = d.issues.pageInfo.endCursor;
+  }
+
+  const paceOpen = new Set<string>();
+  for (let from = 0; ; from += 1000) {
+    const rows = check(
+      await sb.from("tasks").select("external_id, status_category, deleted_in_source_at, archived_in_source_at")
+        .eq("workspace_id", ws.id).eq("source", "linear").order("id").range(from, from + 999),
+      "load tasks",
+    ) as { external_id: string; status_category: string; deleted_in_source_at: string | null; archived_in_source_at: string | null }[];
+    for (const r of rows) {
+      if (["backlog", "todo", "in_progress"].includes(r.status_category) && !r.deleted_in_source_at && !r.archived_in_source_at) paceOpen.add(r.external_id);
+    }
+    if (rows.length < 1000) break;
+  }
+
+  const stale = [...paceOpen].filter((id) => !linearOpen.has(id)); // Pace thinks open, Linear doesn't
+  const behind = [...linearOpen].filter((id) => !paceOpen.has(id)); // Linear open, Pace doesn't know / thinks closed
+  const toFetch = [...stale, ...behind];
+  let updated = 0, gone = 0;
+  if (toFetch.length) {
+    const maps = await syncReference(sb, ws.id);
+    const links: ParentLink[] = [];
+    for (const part of chunk(toFetch, 25)) {
+      const d = await linearGql<{ issues: { nodes: LinearIssue[] } }>(
+        `query($ids:[ID!]){ issues(first:25, includeArchived:true, filter:{ id:{ in:$ids } }){ nodes{ ${ISSUE_FIELDS} } } }`,
+        { ids: part },
+      );
+      const r = await upsertIssues(sb, ws.id, maps, d.issues.nodes);
+      links.push(...r.links);
+      updated += d.issues.nodes.length;
+      // ids Linear no longer returns at all: treat as deleted
+      const seen = new Set(d.issues.nodes.map((n) => n.id));
+      const missing = part.filter((id) => !seen.has(id) && stale.includes(id));
+      if (missing.length) {
+        check(await sb.from("tasks").update({ deleted_in_source_at: new Date().toISOString() })
+          .eq("workspace_id", ws.id).eq("source", "linear").in("external_id", missing), "mark gone");
+        gone += missing.length;
+      }
+    }
+    await linkParents(sb, ws.id, links);
+  }
+  return { openInLinear: linearOpen.size, openInPace: paceOpen.size, stale: stale.length, behind: behind.length, updated, gone };
+}
+
 // ---------- webhook helpers ----------
 export async function syncSingleIssue(linearId: string) {
   const sb = adminDb();

@@ -12,7 +12,7 @@ export default async function ProjectDetail({ params }: { params: Promise<{ id: 
   const { supabase, workspace } = await requireCtx();
   const [p, tasks, projects, people] = await Promise.all([
     supabase.from("v_project_progress").select("*").eq("project_id", id).maybeSingle(),
-    supabase.from("tasks").select(TASK_COLUMNS).eq("project_id", id).order("identifier").limit(900),
+    supabase.from("tasks").select(TASK_COLUMNS).is("deleted_in_source_at", null).eq("project_id", id).order("identifier").limit(900),
     supabase.from("projects").select("id, name"),
     supabase.from("people").select("id, display_name"),
   ]);

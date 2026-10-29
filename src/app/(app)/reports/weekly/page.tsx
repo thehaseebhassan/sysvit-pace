@@ -16,7 +16,7 @@ export default async function Weekly() {
 
   const [counts, done, projects, people] = await Promise.all([
     supabase.from("v_weekly_done").select("week_start, done_count").gte("week_start", first),
-    supabase.from("tasks").select(TASK_COLUMNS)
+    supabase.from("tasks").select(TASK_COLUMNS).is("deleted_in_source_at", null)
       .eq("status_category", "done").gte("completed_at", new Date(addDays(first, -1) + "T00:00:00Z").toISOString())
       .order("completed_at", { ascending: false }).limit(1000),
     supabase.from("projects").select("id, name"),

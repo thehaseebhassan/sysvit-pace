@@ -35,10 +35,10 @@ export default async function Overview() {
     supabase.from("v_assignee_workload").select("assignee_id, assignee_name, open_tasks, done_tasks, overdue_tasks"),
     supabase.from("v_project_progress").select("project_id, project_name, total_tasks, done_tasks, open_tasks, overdue_tasks, percent_done").order("open_tasks", { ascending: false }).limit(9),
     supabase.from("v_weekly_done").select("done_count").eq("week_start", lastWeek),
-    supabase.from("tasks").select("id, completed_at").eq("status_category", "done").gte("completed_at", new Date(addDays(thisWeek, -1) + "T00:00:00Z").toISOString()).limit(1000),
-    supabase.from("v_flagged_tasks").select("task_id, identifier, title, due_date, is_overdue, is_unassigned, assignee_id").order("due_date", { nullsFirst: false }).limit(60),
-    supabase.from("tasks").select("id, identifier, title, due_date, assignee_id").in("status_category", ["backlog", "todo", "in_progress"]).gte("due_date", today).lte("due_date", soon).order("due_date").limit(40),
-    supabase.from("tasks").select("id, identifier, title, completed_at, assignee_id, project_id").eq("status_category", "done").not("completed_at", "is", null).order("completed_at", { ascending: false }).limit(8),
+    supabase.from("tasks").select("id, completed_at").is("deleted_in_source_at", null).eq("status_category", "done").gte("completed_at", new Date(addDays(thisWeek, -1) + "T00:00:00Z").toISOString()).limit(1000),
+    supabase.from("v_flagged_tasks").select("task_id, identifier, title, due_date, is_overdue, is_unassigned, assignee_id, status_name").order("due_date", { nullsFirst: false }).limit(60),
+    supabase.from("tasks").select("id, identifier, title, due_date, assignee_id, status_name").is("deleted_in_source_at", null).is("archived_in_source_at", null).in("status_category", ["backlog", "todo", "in_progress"]).gte("due_date", today).lte("due_date", soon).order("due_date").limit(40),
+    supabase.from("tasks").select("id, identifier, title, completed_at, assignee_id, project_id").is("deleted_in_source_at", null).eq("status_category", "done").not("completed_at", "is", null).order("completed_at", { ascending: false }).limit(8),
     supabase.from("people").select("id, display_name"),
     supabase.from("sync_runs").select("finished_at").eq("status", "success").neq("trigger", "import").order("started_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
@@ -72,8 +72,8 @@ export default async function Overview() {
     { label: "Unassigned", value: unassigned, href: "/tasks?status=open&assignee=none", kind: "none" as const, color: "#62666d", note: unassigned ? "open, no owner" : "everything owned" },
   ];
 
-  const item = (r: { id?: string; task_id?: string; identifier: string | null; title: string; assignee_id: string | null }, note: string, tone: AttentionItem["tone"]): AttentionItem => ({
-    id: (r.id ?? r.task_id) as string, identifier: r.identifier, title: r.title, note, tone, assignee: r.assignee_id ? who.get(r.assignee_id) ?? null : null,
+  const item = (r: { id?: string; task_id?: string; identifier: string | null; title: string; assignee_id: string | null; status_name: string | null }, note: string, tone: AttentionItem["tone"]): AttentionItem => ({
+    id: (r.id ?? r.task_id) as string, identifier: r.identifier, title: r.title, note: r.status_name ? `${r.status_name} · ${note}` : note, tone, assignee: r.assignee_id ? who.get(r.assignee_id) ?? null : null,
   });
   const overdueItems = (flagged.data ?? []).filter((t) => t.is_overdue).map((t) => item(t, `due ${fmtDate(t.due_date)}`, "red"));
   const unassignedItems = (flagged.data ?? []).filter((t) => t.is_unassigned).map((t) => item(t, "no owner", "orange"));

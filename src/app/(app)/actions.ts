@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
-import { relinkHierarchy, runSync } from "@/lib/sync/run";
+import { reconcileOpen, relinkHierarchy, runSync } from "@/lib/sync/run";
 import { executeApprovedBatch, runArchiveStep } from "@/lib/sync/archive";
 import { importClosedIssuesCsv } from "@/lib/sync/import";
 
@@ -32,6 +32,15 @@ export async function rebuildHierarchy(): Promise<ActionState> {
       r.parentMissing ? `${r.parentMissing} parents still missing` : "",
     ].filter(Boolean).join(", ");
     return { ok: true, message: `Linear has ${r.withParent} sub-issues; ${r.linked} linked in Pace.${extra ? " " + extra + "." : ""}` };
+  } catch (e) { return { ok: false, message: msg(e) }; }
+}
+
+export async function reconcileOpenIssues(): Promise<ActionState> {
+  try {
+    await requireAdmin();
+    const r = await reconcileOpen();
+    refresh();
+    return { ok: true, message: `Linear has ${r.openInLinear} open issues, Pace had ${r.openInPace}. Fixed ${r.stale} that were no longer open and ${r.behind} that were out of date${r.gone ? ` (${r.gone} no longer exist in Linear)` : ""}.` };
   } catch (e) { return { ok: false, message: msg(e) }; }
 }
 
